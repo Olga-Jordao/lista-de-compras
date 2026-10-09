@@ -46,6 +46,9 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
   (uma vez em cada aparelho). Não se usa link nem código por email: no iPhone um link
   abre o browser e não a aplicação instalada, e no plano gratuito o Supabase não deixa
   mudar o email para trazer um código (só com SMTP próprio).
+- No Supabase (09/10/2026): "Confirm email" desligado e **registos novos desligados**
+  ("Allow new users to sign up"), depois de criada a conta da Olga. Só ela entra.
+  Se um dia for preciso outra conta, volta-se a ligar temporariamente.
 - Orçamento mensal **único para todo o supermercado** (alimentação, higiene,
   limpeza, animais), não só alimentação.
 - Ao fechar uma compra, os artigos **não comprados ficam** na lista assinalados, e
