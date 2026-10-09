@@ -82,9 +82,6 @@ export function EcraConta() {
               <button className="botao principal largo" onClick={() => void sincronizar()}>
                 Sincronizar agora
               </button>
-              <button className="botao perigo largo" onClick={sair}>
-                Sair neste aparelho
-              </button>
             </div>
           </>
         ) : (
@@ -150,6 +147,12 @@ export function EcraConta() {
         </div>
 
         <p className="nota">Compras fechadas guardadas: {compras}</p>
+
+        {email && (
+          <button className="botao perigo pequeno" style={{ marginTop: 40, padding: 0 }} onClick={sair}>
+            Terminar sessão neste aparelho
+          </button>
+        )}
       </div>
     </>
   )
