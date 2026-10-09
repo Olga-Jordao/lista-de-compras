@@ -3,14 +3,16 @@ import { supabase } from '../lib/supabase'
 import { sincronizar } from '../lib/sync'
 import { useEstadoSync, useNumeroCompras } from '../lib/usar'
 
+// Entrada com email e palavra-passe, uma vez em cada aparelho. (O código por email
+// não serve: no plano gratuito o Supabase não deixa mudar o texto do email.)
 export function EcraConta() {
   const estado = useEstadoSync()
   const compras = useNumeroCompras()
   const [email, setEmail] = useState<string | null>(null)
-  const [passo, setPasso] = useState<'email' | 'codigo'>('email')
   const [emailEscrito, setEmailEscrito] = useState('')
-  const [codigo, setCodigo] = useState('')
+  const [palavraPasse, setPalavraPasse] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [aEnviar, setAEnviar] = useState(false)
 
   useEffect(() => {
@@ -19,23 +21,33 @@ export function EcraConta() {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  async function pedirCodigo() {
+  const podeEnviar = !aEnviar && emailEscrito.includes('@') && palavraPasse.length >= 6
+
+  async function entrar() {
     setErro(null)
+    setInfo(null)
     setAEnviar(true)
-    const { error } = await supabase.auth.signInWithOtp({ email: emailEscrito.trim(), options: { shouldCreateUser: true } })
+    const { error } = await supabase.auth.signInWithPassword({ email: emailEscrito.trim(), password: palavraPasse })
     setAEnviar(false)
     if (error) return setErro(traduzir(error.message))
-    setPasso('codigo')
+    setPalavraPasse('')
   }
 
-  async function confirmarCodigo() {
+  async function criarConta() {
     setErro(null)
+    setInfo(null)
     setAEnviar(true)
-    const { error } = await supabase.auth.verifyOtp({ email: emailEscrito.trim(), token: codigo.trim(), type: 'email' })
+    const { data, error } = await supabase.auth.signUp({
+      email: emailEscrito.trim(),
+      password: palavraPasse,
+      options: { emailRedirectTo: 'https://olga-jordao.github.io/lista-de-compras/' },
+    })
     setAEnviar(false)
     if (error) return setErro(traduzir(error.message))
-    setCodigo('')
-    setPasso('email')
+    if (!data.session) {
+      setInfo('Conta criada. Vai ao teu email, carrega no link do Supabase para confirmar e depois volta aqui e carrega em «Entrar».')
+    }
+    setPalavraPasse('')
   }
 
   async function sair() {
@@ -78,53 +90,54 @@ export function EcraConta() {
         ) : (
           <>
             <p className="nota">
-              Entra com o teu email para o computador e o telemóvel terem a mesma lista. Só é preciso fazer isto uma vez em
-              cada aparelho. Sem entrar, a lista funciona na mesma, mas fica só neste aparelho.
+              Entra com o teu email e palavra-passe para o computador e o telemóvel terem a mesma lista. Só é preciso
+              fazer isto uma vez em cada aparelho. Sem entrar, a lista funciona na mesma, mas fica só neste aparelho.
             </p>
-            {passo === 'email' ? (
-              <div className="bloco">
-                <label className="bloco-rotulo" htmlFor="email">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  className="campo"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={emailEscrito}
-                  onChange={(e) => setEmailEscrito(e.target.value)}
-                />
-                <div className="botoes-folha">
-                  <button className="botao principal largo" disabled={aEnviar || !emailEscrito.includes('@')} onClick={pedirCodigo}>
-                    {aEnviar ? 'A enviar…' : 'Enviar código'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bloco">
-                <label className="bloco-rotulo" htmlFor="codigo">
-                  Código que recebeste em {emailEscrito}
-                </label>
-                <input
-                  id="codigo"
-                  className="campo numero"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={codigo}
-                  onChange={(e) => setCodigo(e.target.value)}
-                />
-                <div className="botoes-folha">
-                  <button className="botao principal largo" disabled={aEnviar || codigo.trim().length < 6} onClick={confirmarCodigo}>
-                    {aEnviar ? 'A confirmar…' : 'Entrar'}
-                  </button>
-                  <button className="botao pequeno largo" onClick={() => setPasso('email')}>
-                    Mudar email ou pedir outro código
-                  </button>
-                </div>
-              </div>
+            <div className="bloco">
+              <label className="bloco-rotulo" htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                className="campo"
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                value={emailEscrito}
+                onChange={(e) => setEmailEscrito(e.target.value)}
+              />
+            </div>
+            <div className="bloco">
+              <label className="bloco-rotulo" htmlFor="palavra-passe">
+                Palavra-passe (pelo menos 6 caracteres)
+              </label>
+              <input
+                id="palavra-passe"
+                className="campo"
+                type="password"
+                autoComplete="current-password"
+                value={palavraPasse}
+                onChange={(e) => setPalavraPasse(e.target.value)}
+              />
+            </div>
+            <div className="botoes-folha">
+              <button className="botao principal largo" disabled={!podeEnviar} onClick={entrar}>
+                {aEnviar ? 'Um momento…' : 'Entrar'}
+              </button>
+              <button className="botao largo" disabled={!podeEnviar} onClick={criarConta}>
+                É a primeira vez: criar conta
+              </button>
+            </div>
+            {erro && (
+              <p className="caixa-aviso" style={{ marginTop: 12 }}>
+                {erro}
+              </p>
             )}
-            {erro && <p className="caixa-aviso">{erro}</p>}
+            {info && (
+              <p className="caixa-info" style={{ marginTop: 12 }}>
+                {info}
+              </p>
+            )}
           </>
         )}
 
@@ -143,8 +156,12 @@ export function EcraConta() {
 }
 
 function traduzir(mensagem: string): string {
-  if (/rate limit|too many|seconds/i.test(mensagem)) return 'Pediste vários códigos seguidos. Espera um minuto e tenta outra vez.'
-  if (/expired|invalid/i.test(mensagem)) return 'O código não está certo ou já expirou. Pede outro.'
+  if (/invalid login credentials/i.test(mensagem)) return 'O email ou a palavra-passe não estão certos. Se é a primeira vez, carrega em «criar conta».'
+  if (/email not confirmed/i.test(mensagem)) return 'Ainda falta confirmar a conta: carrega no link que o Supabase te mandou por email.'
+  if (/already registered|already exists/i.test(mensagem)) return 'Já existe uma conta com este email. Carrega em «Entrar».'
+  if (/signups not allowed|signup is disabled/i.test(mensagem)) return 'Não é possível criar contas novas. Carrega em «Entrar».'
+  if (/rate limit|too many|seconds/i.test(mensagem)) return 'Foram várias tentativas seguidas. Espera um minuto e tenta outra vez.'
+  if (/password/i.test(mensagem)) return 'A palavra-passe tem de ter pelo menos 6 caracteres.'
   if (/email/i.test(mensagem)) return 'Confirma se o email está bem escrito.'
   return mensagem
 }

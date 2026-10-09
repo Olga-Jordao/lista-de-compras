@@ -18,7 +18,7 @@ comparar produtos de verdade.
 - Os dados ficam guardados no aparelho, por isso a aplicação abre e funciona sem
   rede dentro da loja; quando há ligação, sincroniza com o Supabase, para o
   computador e o telemóvel terem sempre a mesma lista.
-- Entro uma única vez em cada aparelho com um código que recebo no email. Não há
+- Entro uma única vez em cada aparelho com o meu email e uma palavra-passe. Não há
   registos, partilha nem outros utilizadores, é apenas uma fechadura.
 - Instala-se no ecrã principal do telemóvel como se fosse uma aplicação.
 - Euros com vírgula decimal. Tudo em português de Portugal.

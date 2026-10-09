@@ -42,9 +42,10 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
 
 ## Decisões tomadas (09/10/2026)
 
-- Sincronização pelo **Supabase**, com entrada por **código enviado por email**
-  (uma vez em cada aparelho). Código e não link, porque no iPhone um link de email
-  abre o browser e não a aplicação instalada no ecrã principal.
+- Sincronização pelo **Supabase**, com entrada por **email e palavra-passe**
+  (uma vez em cada aparelho). Não se usa link nem código por email: no iPhone um link
+  abre o browser e não a aplicação instalada, e no plano gratuito o Supabase não deixa
+  mudar o email para trazer um código (só com SMTP próprio).
 - Orçamento mensal **único para todo o supermercado** (alimentação, higiene,
   limpeza, animais), não só alimentação.
 - Ao fechar uma compra, os artigos **não comprados ficam** na lista assinalados, e
