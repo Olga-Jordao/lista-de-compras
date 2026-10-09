@@ -103,7 +103,7 @@ export function FolhaArtigo({
     <Folha titulo={produto.nome} aoFechar={aoFechar}>
       <div className="bloco">
         <label className="bloco-rotulo" htmlFor="quantidade">
-          Quantidade
+          Quantidade a comprar
         </label>
         <div className="linha-campos">
           <input

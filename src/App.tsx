@@ -1,4 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { acrescentarArtigo } from './lib/acoes'
+import type { Produto } from './lib/tipos'
 import { IconeCatalogo, IconeConta, IconeLista, IconeSeccoes } from './componentes/Icones'
 import { EcraCatalogo } from './ecras/EcraCatalogo'
 import { EcraConta } from './ecras/EcraConta'
@@ -41,10 +43,30 @@ export function App() {
     gravarLocal('lista-escolhida', id)
   }
 
+  // Do catálogo para a lista: põe o produto na lista e abre-o para a quantidade.
+  const [artigoAAbrir, setArtigoAAbrir] = useState<string | null>(null)
+  const limparArtigoAAbrir = useCallback(() => setArtigoAAbrir(null), [])
+  async function porNaLista(p: Produto) {
+    if (!listaId) return
+    const a = await acrescentarArtigo(listaId, p)
+    setArtigoAAbrir(a.id)
+    setSeparador('lista')
+  }
+
   return (
     <div className="app">
-      {separador === 'lista' && <EcraLista listas={listas} listaId={listaId} aoEscolherLista={escolherLista} />}
-      {separador === 'catalogo' && <EcraCatalogo />}
+      {separador === 'lista' && (
+        <EcraLista
+          listas={listas}
+          listaId={listaId}
+          aoEscolherLista={escolherLista}
+          artigoAAbrir={artigoAAbrir}
+          aoAbrirArtigo={limparArtigoAAbrir}
+        />
+      )}
+      {separador === 'catalogo' && (
+        <EcraCatalogo listas={listas} listaId={listaId} aoEscolherLista={escolherLista} aoPorNaLista={porNaLista} />
+      )}
       {separador === 'seccoes' && <EcraSeccoes />}
       {separador === 'conta' && <EcraConta />}
 

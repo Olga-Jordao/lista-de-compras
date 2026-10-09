@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAviso } from '../componentes/AvisoRapido'
 import { FolhaArtigo } from '../componentes/FolhaArtigo'
 import { FolhaFechar } from '../componentes/FolhaFechar'
@@ -32,16 +32,27 @@ export function EcraLista({
   listas,
   listaId,
   aoEscolherLista,
+  artigoAAbrir,
+  aoAbrirArtigo,
 }: {
   listas: Lista[]
   listaId: string | null
   aoEscolherLista: (id: string) => void
+  /** Artigo acabado de pôr na lista a partir do catálogo, para abrir já na quantidade. */
+  artigoAAbrir: string | null
+  aoAbrirArtigo: () => void
 }) {
   const aviso = useAviso()
   const seccoes = useSeccoes()
   const produtos = useProdutos()
   const artigos = useArtigos(listaId)
   const [folha, setFolha] = useState<FolhaAberta | null>(null)
+
+  useEffect(() => {
+    if (!artigoAAbrir) return
+    setFolha({ tipo: 'artigo', artigoId: artigoAAbrir, foco: 'quantidade' })
+    aoAbrirArtigo()
+  }, [artigoAAbrir, aoAbrirArtigo])
   const [ordenar, setOrdenar] = useState(false)
   const [esconderRiscados, setEsconderRiscados] = useState(false)
 

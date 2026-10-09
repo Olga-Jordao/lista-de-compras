@@ -29,6 +29,7 @@ export function FolhaProduto({
   nomeInicial = '',
   seccoes,
   textoCriar = 'Guardar no catálogo',
+  textoSoCatalogo,
   aoFechar,
   aoCriar,
 }: {
@@ -36,6 +37,8 @@ export function FolhaProduto({
   nomeInicial?: string
   seccoes: Seccao[]
   textoCriar?: string
+  /** Se existir, mostra um segundo botão que só guarda no catálogo, sem chamar aoCriar. */
+  textoSoCatalogo?: string
   aoFechar: () => void
   aoCriar?: (p: Produto) => void
 }) {
@@ -53,7 +56,7 @@ export function FolhaProduto({
   const ref = precoReferencia(precoNum, unidade, conteudo)
   const podeGuardar = nome.trim() !== '' && seccaoId != null
 
-  async function guardar() {
+  async function guardar(chamarAoCriar = true) {
     if (!podeGuardar || !seccaoId) return
     if (produto) {
       await alterarProduto(produto.id, {
@@ -69,7 +72,8 @@ export function FolhaProduto({
     } else {
       const novo = await criarProduto(nome, seccaoId, unidade)
       if (conteudo) await alterarProduto(novo.id, { conteudo })
-      aoCriar?.({ ...novo, conteudo })
+      if (chamarAoCriar && aoCriar) aoCriar({ ...novo, conteudo })
+      else aviso(`${novo.nome} guardado no catálogo`)
       aoFechar()
     }
   }
@@ -148,13 +152,21 @@ export function FolhaProduto({
               Ao {ref.unidade === 'kg' ? 'quilo' : 'litro'}: {euros(ref.valor)}/{ref.unidade}
             </p>
           )}
+          <p className="nota">
+            Atualiza-se sozinho quando fechas uma compra. A quantidade a comprar põe-se na Lista.
+          </p>
         </div>
       )}
 
       <div className="botoes-folha">
-        <button className="botao principal largo" disabled={!podeGuardar} onClick={guardar}>
+        <button className="botao principal largo" disabled={!podeGuardar} onClick={() => guardar()}>
           {produto ? 'Guardar' : textoCriar}
         </button>
+        {!produto && textoSoCatalogo && (
+          <button className="botao largo" disabled={!podeGuardar} onClick={() => guardar(false)}>
+            {textoSoCatalogo}
+          </button>
+        )}
         {!podeGuardar && <p className="nota">Escolhe a secção para guardar.</p>}
         {produto && (
           <button className="botao perigo largo" onClick={apagar}>
