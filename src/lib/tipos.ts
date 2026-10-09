@@ -9,7 +9,7 @@ export interface Base {
   sujo: 0 | 1
 }
 
-export type Unidade = 'un' | 'kg' | 'L'
+export type Unidade = 'un' | 'dz' | 'kg' | 'L'
 export type UnidadeConteudo = 'g' | 'kg' | 'ml' | 'L'
 
 export interface Seccao extends Base {

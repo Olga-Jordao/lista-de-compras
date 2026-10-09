@@ -23,6 +23,13 @@ describe('preços', () => {
     expect(totalLinha({ quantidade: 18, precoUnitario: 0.99, totalManual: null })).toBe(17.82)
   })
 
+  it('ovos à dúzia: meia dúzia, dúzia e dúzia e meia', () => {
+    expect(totalLinha({ quantidade: 1, precoUnitario: 3, totalManual: null })).toBe(3)
+    expect(totalLinha({ quantidade: 0.5, precoUnitario: 3, totalManual: null })).toBe(1.5)
+    expect(totalLinha({ quantidade: 1.5, precoUnitario: 3, totalManual: null })).toBe(4.5)
+    expect(precoReferencia(3, 'dz', { quantidade: 12, unidade: 'g' })).toBeNull()
+  })
+
   it('o total da etiqueta ganha ao preço unitário', () => {
     expect(totalLinha({ quantidade: 1.13, precoUnitario: 9.99, totalManual: 11.29 })).toBe(11.29)
   })

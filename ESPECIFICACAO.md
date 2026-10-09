@@ -47,7 +47,8 @@ Cada produto tem:
 
 - **nome**;
 - **secção** a que pertence;
-- **unidade de compra**: un, kg ou L (não há "g": 200 g escreve-se 0,2 kg);
+- **unidade de compra**: un, dz, kg ou L (não há "g": 200 g escreve-se 0,2 kg; os
+  ovos compram-se à dúzia: meia dúzia é 0,5 dz, com o preço da dúzia);
 - **conteúdo da embalagem**, opcional e só para produtos comprados à unidade, por
   exemplo 75 ml para uma pasta de dentes ou 500 g para uma caixa de uvas;
 - **último preço**, que se atualiza sozinho à medida que vou comprando.

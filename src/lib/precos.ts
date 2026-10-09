@@ -44,6 +44,8 @@ export function precoReferencia(
 ): { valor: number; unidade: 'kg' | 'L' } | null {
   if (precoUnitario == null) return null
   if (unidade === 'kg' || unidade === 'L') return { valor: precoUnitario, unidade }
+  // Às dúzias (ovos) não há conta ao quilo.
+  if (unidade !== 'un') return null
   const c = conteudoEmKgOuL(conteudo)
   if (!c) return null
   return { valor: precoUnitario / c.valor, unidade: c.unidade }

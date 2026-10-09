@@ -8,6 +8,7 @@ import { Folha, Segmentos } from './Folha'
 
 const UNIDADES: { valor: Unidade; rotulo: string }[] = [
   { valor: 'un', rotulo: 'un' },
+  { valor: 'dz', rotulo: 'dz' },
   { valor: 'kg', rotulo: 'kg' },
   { valor: 'L', rotulo: 'L' },
 ]
