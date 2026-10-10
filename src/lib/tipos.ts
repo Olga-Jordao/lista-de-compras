@@ -49,10 +49,12 @@ export interface Artigo extends Base {
   /** Total pago (etiqueta, talão), em alternativa ao preço unitário. */
   totalManual: number | null
   /**
-   * Nos produtos à unidade pesados na loja (pão, por exemplo): o peso de tudo junto,
-   * para o preço ao quilo. Pode faltar em registos antigos.
+   * O peso que a balança deu para tudo (6 espetadas = 1,730 kg; 2 kg pedidos =
+   * 2,050 kg). Pode faltar em registos antigos.
    */
   pesoTotal?: { quantidade: number; unidade: UnidadeConteudo } | null
+  /** Preço ao quilo (ou ao litro) escrito da etiqueta. Pode faltar em registos antigos. */
+  precoKg?: number | null
   noCarrinho: boolean
   /** Fixo fica na lista depois de fechar a compra; só desta vez sai. */
   fixo: boolean

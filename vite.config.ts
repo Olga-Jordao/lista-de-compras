@@ -8,6 +8,12 @@ export default defineConfig({
   base: '/lista-de-compras/',
   // A biblioteca do Supabase é grande; como fica guardada no telemóvel, não faz mal.
   build: { chunkSizeWarningLimit: 1000 },
+  // Versão = data e hora da publicação, para se ver no ecrã Sincronizar qual está instalada.
+  define: {
+    __VERSAO__: JSON.stringify(
+      new Date().toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon', dateStyle: 'short', timeStyle: 'short' }),
+    ),
+  },
   plugins: [
     react(),
     VitePWA({

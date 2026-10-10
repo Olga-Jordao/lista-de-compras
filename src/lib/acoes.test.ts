@@ -89,6 +89,81 @@ describe('total pago em vez de preço por kg', () => {
   })
 })
 
+describe('pedir à unidade ou ao peso, pagar ao quilo', () => {
+  const talho = idSeccaoInicial('Talho')
+
+  it('6 espetadas: balança 1,730 kg a 10,99 €/kg dá 19,01 € e cada uma ≈ 288 g', async () => {
+    const espetadas = await criarProduto('Espetadas de frango', talho, 'un')
+    const a = await acrescentarArtigo('lista-semanal', espetadas)
+    await alterarArtigo(a.id, { quantidade: 6, pesoTotal: { quantidade: 1.73, unidade: 'kg' }, precoKg: 10.99, noCarrinho: true })
+    const c = contasArtigo((await db.artigos.get(a.id))!, espetadas)
+    expect(c.total).toBe(19.01)
+    expect(c.aoQuilo?.valor).toBe(10.99)
+    expect(c.unitario).toBeCloseTo(3.17, 2)
+
+    await fecharCompra({ listaId: 'lista-semanal', modo: 'loja', totalPago: null, motivoDesconto: null })
+    const depois = (await db.produtos.get(espetadas.id))!
+    expect(depois.ultimoPrecoRef).toBe(10.99)
+    expect(depois.conteudo).toEqual({ quantidade: 288, unidade: 'g' })
+
+    // Da próxima vez, em casa: "6 espetadas" já dá uma estimativa.
+    const proxima = (await db.artigos.get(a.id))!
+    const estimativa = contasArtigo(proxima, depois)
+    expect(estimativa.sugerido).toBe(true)
+    expect(estimativa.total).toBeCloseTo(18.99, 1)
+  })
+
+  it('fígado: pedi 2 kg, a balança deu 2,050 kg a 2,00 €/kg → 4,10 €', () => {
+    const c = contasArtigo(
+      { quantidade: 2, unidade: 'kg', pesoTotal: { quantidade: 2.05, unidade: 'kg' }, precoKg: 2, precoUnitario: null, totalManual: null },
+      undefined,
+    )
+    expect(c.total).toBe(4.1)
+    expect(c.aoQuilo?.valor).toBe(2)
+  })
+
+  it('hambúrgueres: 4 un, 625 g e total 9,37 € dão 14,99 €/kg', () => {
+    const c = contasArtigo(
+      { quantidade: 4, unidade: 'un', pesoTotal: { quantidade: 625, unidade: 'g' }, totalManual: 9.37, precoKg: null, precoUnitario: null },
+      undefined,
+    )
+    expect(c.aoQuilo?.valor).toBeCloseTo(14.99, 2)
+    expect(c.incoerente).toBeNull()
+  })
+
+  it('avisa quando os três valores não batem certo (bifes: 1,80 kg × 19,99 € ≠ 21,59 €)', () => {
+    const c = contasArtigo(
+      { quantidade: 4, unidade: 'un', pesoTotal: { quantidade: 1.8, unidade: 'kg' }, precoKg: 19.99, totalManual: 21.59, precoUnitario: null },
+      undefined,
+    )
+    expect(c.incoerente?.totalEsperado).toBe(35.98)
+    const certo = contasArtigo(
+      { quantidade: 4, unidade: 'un', pesoTotal: { quantidade: 1.08, unidade: 'kg' }, precoKg: 19.99, totalManual: 21.59, precoUnitario: null },
+      undefined,
+    )
+    expect(certo.incoerente).toBeNull()
+  })
+
+  it('kiwis: 8 un, só com preço/kg e total, a aplicação descobre o peso', () => {
+    const c = contasArtigo(
+      { quantidade: 8, unidade: 'un', precoKg: 5.76, totalManual: 11.52, pesoTotal: null, precoUnitario: null },
+      undefined,
+    )
+    expect(c.peso?.valor).toBeCloseTo(2, 3)
+    expect(c.unitario).toBeCloseTo(1.44, 2)
+  })
+
+  it('cápsulas de café: 6 caixas a 3,75 €, caixa de 100 g → 37,50 €/kg', () => {
+    const cafe = { conteudo: { quantidade: 100, unidade: 'g' as const }, ultimoPreco: null, ultimoPrecoRef: null, unidade: 'un' as const }
+    const c = contasArtigo(
+      { quantidade: 6, unidade: 'un', precoUnitario: 3.75, totalManual: null, pesoTotal: null, precoKg: null },
+      cafe as never,
+    )
+    expect(c.total).toBe(22.5)
+    expect(c.aoQuilo?.valor).toBeCloseTo(37.5, 2)
+  })
+})
+
 describe('sincronização', () => {
   it('a alteração mais recente ganha e a mais antiga é ignorada', async () => {
     const p = await criarProduto('Café', MERCEARIA, 'un')

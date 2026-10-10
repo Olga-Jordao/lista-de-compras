@@ -119,7 +119,7 @@ export function FolhaProduto({
       {unidade === 'un' && (
         <div className="bloco">
           <label className="bloco-rotulo" htmlFor="conteudo-produto">
-            Quanto leva a embalagem (opcional)
+            Peso de cada embalagem ou unidade (opcional)
           </label>
           <div className="linha-campos">
             <input

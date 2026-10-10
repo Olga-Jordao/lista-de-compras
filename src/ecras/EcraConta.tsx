@@ -147,6 +147,7 @@ export function EcraConta() {
         </div>
 
         <p className="nota">Compras fechadas guardadas: {compras}</p>
+        <p className="nota">Versão de {__VERSAO__}</p>
 
         {email && (
           <button className="botao perigo pequeno" style={{ marginTop: 40, padding: 0 }} onClick={sair}>

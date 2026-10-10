@@ -59,8 +59,10 @@ export function FolhaFechar({
 
       {semPreco > 0 && (
         <p className="caixa-aviso" style={{ marginTop: 12 }}>
-          {semPreco === 1 ? '1 artigo no carrinho não tem preço' : `${semPreco} artigos no carrinho não têm preço`} e conta
-          como 0 €.
+          {semPreco === 1
+            ? '1 artigo no carrinho ainda não tem os valores da etiqueta e conta'
+            : `${semPreco} artigos no carrinho ainda não têm os valores da etiqueta e contam`}{' '}
+          pela estimativa (ou 0 € sem estimativa). Os preços desses não ficam guardados.
         </p>
       )}
 

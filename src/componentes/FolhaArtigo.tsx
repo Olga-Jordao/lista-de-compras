@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { alterarArtigo, alterarProduto, apagarArtigo, contasArtigo } from '../lib/acoes'
-import { arredondar, euros, lerNumero, paraCampo } from '../lib/numeros'
+import { alterarArtigo, apagarArtigo, contasArtigo, type CamposArtigo } from '../lib/acoes'
+import { arredondar, euros, lerNumero, numero, paraCampo, paraCampoEuros } from '../lib/numeros'
 import type { Artigo, Produto, Unidade, UnidadeConteudo } from '../lib/tipos'
 import { useAviso } from './AvisoRapido'
 import { Folha, Segmentos } from './Folha'
@@ -12,19 +12,14 @@ const UNIDADES: { valor: Unidade; rotulo: string }[] = [
   { valor: 'L', rotulo: 'L' },
 ]
 
-const UNIDADES_PESO: { valor: UnidadeConteudo; rotulo: string }[] = [
-  { valor: 'g', rotulo: 'g' },
-  { valor: 'kg', rotulo: 'kg' },
-  { valor: 'ml', rotulo: 'ml' },
-  { valor: 'L', rotulo: 'L' },
-]
+type Campo = 'peso' | 'precoKg' | 'precoUn' | 'total'
 
 const selecionarTudo = (e: React.FocusEvent<HTMLInputElement>) => e.target.select()
 
 /**
- * Painel de um artigo da lista. O preço escreve-se de uma de duas formas, a que
- * estiver à mão: o preço por unidade (prateleira) ou o total pago (etiqueta, talão).
- * A outra calcula-se, e o preço ao quilo sai do total e do peso.
+ * Painel de um artigo. Em cima, o que se pediu (6 un, 2 kg). Em baixo, o que diz a
+ * etiqueta ou a prateleira: peso, preço/kg, preço por unidade e total. Escreve-se
+ * o que houver (normalmente dois) e o resto calcula-se.
  */
 export function FolhaArtigo({
   artigo,
@@ -40,73 +35,113 @@ export function FolhaArtigo({
   aoEditarProduto: () => void
 }) {
   const aviso = useAviso()
+  const aoPesoInicial = artigo.unidade === 'kg' || artigo.unidade === 'L'
+  // Registos antigos ao kg guardavam o preço/kg em precoUnitario.
+  const precoKgInicial = artigo.precoKg ?? (aoPesoInicial ? artigo.precoUnitario : null)
+  const precoUnInicial = aoPesoInicial ? null : artigo.precoUnitario
+
   const [quantidade, setQuantidade] = useState(paraCampo(artigo.quantidade))
   const [unidade, setUnidade] = useState<Unidade>(artigo.unidade)
-  const [editado, setEditado] = useState<'preco' | 'total' | null>(
-    artigo.totalManual != null ? 'total' : artigo.precoUnitario != null ? 'preco' : null,
+  const [textos, setTextos] = useState<Record<Campo, string>>({
+    peso: paraCampo(artigo.pesoTotal?.quantidade),
+    precoKg: paraCampo(precoKgInicial),
+    precoUn: paraCampo(precoUnInicial),
+    total: paraCampo(artigo.totalManual),
+  })
+  const [escritos, setEscritos] = useState<Record<Campo, boolean>>({
+    peso: artigo.pesoTotal != null,
+    precoKg: precoKgInicial != null,
+    precoUn: precoUnInicial != null,
+    total: artigo.totalManual != null,
+  })
+  const [pesoUn, setPesoUn] = useState<UnidadeConteudo>(
+    artigo.pesoTotal?.unidade ?? (artigo.unidade === 'L' ? 'L' : 'kg'),
   )
-  const [precoTxt, setPrecoTxt] = useState(paraCampo(artigo.precoUnitario))
-  const [totalTxt, setTotalTxt] = useState(paraCampo(artigo.totalManual))
-  const pesoInicial = artigo.pesoTotal ?? produto.conteudo
-  const [pesoModo, setPesoModo] = useState<'cada' | 'junto'>(artigo.pesoTotal ? 'junto' : 'cada')
-  const [pesoTxt, setPesoTxt] = useState(paraCampo(pesoInicial?.quantidade))
-  const [pesoUn, setPesoUn] = useState<UnidadeConteudo>(pesoInicial?.unidade ?? 'g')
   const [fixo, setFixo] = useState(artigo.fixo)
 
   const refQuantidade = useRef<HTMLInputElement>(null)
-  const refPreco = useRef<HTMLInputElement>(null)
-  const refTotal = useRef<HTMLInputElement>(null)
+  const refPrimeiro = useRef<HTMLInputElement>(null)
   useEffect(() => {
-    // Ao peso (kg, L), na loja tem-se o total da etiqueta; à unidade, o preço da prateleira.
-    const alvo = foco === 'quantidade' ? refQuantidade : artigo.unidade === 'kg' || artigo.unidade === 'L' ? refTotal : refPreco
-    alvo.current?.focus()
-  }, [foco, artigo.unidade])
+    ;(foco === 'quantidade' ? refQuantidade : refPrimeiro).current?.focus()
+  }, [foco])
 
   const q = lerNumero(quantidade) ?? 0
-  const pesoNum = lerNumero(pesoTxt)
-  const peso = unidade === 'un' && pesoNum ? { quantidade: pesoNum, unidade: pesoUn } : null
+  const aoPeso = unidade === 'kg' || unidade === 'L'
+  const temPeso = unidade !== 'dz'
+  const temPrecoUn = unidade === 'un' || unidade === 'dz'
+  const emLitros = pesoUn === 'ml' || pesoUn === 'L'
+  const ref = emLitros || unidade === 'L' ? 'L' : 'kg'
 
-  // O artigo tal como está no painel, para as contas em tempo real.
-  const rascunho: Pick<Artigo, 'quantidade' | 'unidade' | 'precoUnitario' | 'totalManual' | 'pesoTotal'> = {
+  const valor = (c: Campo) => (escritos[c] ? lerNumero(textos[c]) : null)
+  const pesoNum = temPeso ? valor('peso') : null
+  const rascunho: CamposArtigo = {
     quantidade: q,
     unidade,
-    precoUnitario: editado === 'preco' ? lerNumero(precoTxt) : editado === null ? artigo.precoUnitario : null,
-    totalManual: editado === 'total' ? lerNumero(totalTxt) : null,
-    pesoTotal: pesoModo === 'junto' ? peso : null,
+    pesoTotal: pesoNum != null ? { quantidade: pesoNum, unidade: pesoUn } : null,
+    precoKg: temPeso ? valor('precoKg') : null,
+    precoUnitario: temPrecoUn ? valor('precoUn') : null,
+    totalManual: valor('total'),
   }
-  const produtoRascunho = pesoModo === 'cada' && unidade === 'un' ? { ...produto, conteudo: peso } : produto
-  const contas = contasArtigo(rascunho, produtoRascunho)
+  const contas = contasArtigo(rascunho, produto)
 
-  const valorPreco =
-    editado === 'preco' ? precoTxt : contas.unitario != null ? paraCampo(arredondar(contas.unitario, 2)) : ''
-  const valorTotal = editado === 'total' ? totalTxt : contas.temPreco ? paraCampo(contas.total) : ''
-  const nomeUnidade = { un: 'unidade', dz: 'dúzia', kg: 'kg', L: 'litro' }[unidade]
+  // O que aparece em cada campo: o que se escreveu, ou o valor calculado (a cinzento).
+  const pesoCalculado = contas.peso
+    ? pesoUn === 'g' || pesoUn === 'ml'
+      ? String(Math.round(contas.peso.valor * 1000))
+      : paraCampo(arredondar(contas.peso.valor, 3))
+    : ''
+  const mostrado: Record<Campo, string> = {
+    peso: escritos.peso ? textos.peso : pesoCalculado,
+    precoKg: escritos.precoKg ? textos.precoKg : contas.aoQuilo ? paraCampoEuros(contas.aoQuilo.valor) : '',
+    precoUn: escritos.precoUn ? textos.precoUn : contas.unitario != null ? paraCampoEuros(contas.unitario) : '',
+    total: escritos.total ? textos.total : contas.temPreco ? paraCampoEuros(contas.total) : '',
+  }
+
+  function escrever(c: Campo, texto: string) {
+    setTextos((t) => ({ ...t, [c]: texto }))
+    setEscritos((e) => ({ ...e, [c]: texto.trim() !== '' }))
+  }
+
+  function campo(c: Campo, rotulo: string, primeiro = false) {
+    return (
+      <div>
+        <label className="bloco-rotulo" htmlFor={`campo-${c}`}>
+          {rotulo}
+        </label>
+        <input
+          id={`campo-${c}`}
+          ref={primeiro ? refPrimeiro : undefined}
+          className={'campo numero' + (escritos[c] ? '' : ' calculado')}
+          inputMode="decimal"
+          placeholder="—"
+          value={mostrado[c]}
+          onChange={(e) => escrever(c, e.target.value)}
+          onFocus={selecionarTudo}
+        />
+      </div>
+    )
+  }
 
   async function guardar(meterNoCarrinho: boolean) {
-    const mudancas: Partial<Artigo> = { unidade, fixo, pesoTotal: rascunho.pesoTotal }
+    const mudancas: Partial<Artigo> = {
+      unidade,
+      fixo,
+      pesoTotal: rascunho.pesoTotal,
+      precoKg: rascunho.precoKg,
+      precoUnitario: rascunho.precoUnitario,
+      totalManual: rascunho.totalManual,
+    }
     if (q > 0) mudancas.quantidade = q
-    if (editado === 'total') {
-      mudancas.totalManual = rascunho.totalManual
-      mudancas.precoUnitario = null
-    } else if (editado === 'preco') {
-      mudancas.precoUnitario = rascunho.precoUnitario
-      mudancas.totalManual = null
-    } else if (meterNoCarrinho && contas.sugerido) {
-      // Aceita a sugestão do último preço.
-      mudancas.precoUnitario = contas.unitario
+    // Produto de preço fixo por unidade, sem nada escrito: aceita o último preço.
+    const nadaEscrito = !Object.values(escritos).some(Boolean)
+    if (meterNoCarrinho && nadaEscrito && temPrecoUn && !produto.conteudo && produto.unidade === unidade && produto.ultimoPreco != null) {
+      mudancas.precoUnitario = produto.ultimoPreco
     }
     if (meterNoCarrinho) {
       mudancas.noCarrinho = true
       mudancas.porComprar = false
     }
     await alterarArtigo(artigo.id, mudancas)
-
-    if (unidade === 'un' && pesoModo === 'cada') {
-      const antes = produto.conteudo
-      if (peso?.quantidade !== antes?.quantidade || peso?.unidade !== antes?.unidade) {
-        await alterarProduto(produto.id, { conteudo: peso })
-      }
-    }
     if (meterNoCarrinho) aviso(`${produto.nome} no carrinho`)
     aoFechar()
   }
@@ -117,11 +152,17 @@ export function FolhaArtigo({
     aoFechar()
   }
 
+  const nomeUnidade = unidade === 'dz' ? 'dúzia' : 'unidade'
+  const porCada =
+    unidade === 'un' && contas.peso && q > 0 && !aoPeso
+      ? `Cada um: ${contas.peso.unidade === 'kg' ? `${Math.round((contas.peso.valor / q) * 1000)} g` : `${Math.round((contas.peso.valor / q) * 1000)} ml`}${contas.temPreco ? ` · ${euros(contas.total / q)}` : ''}`
+      : null
+
   return (
     <Folha titulo={produto.nome} aoFechar={aoFechar}>
       <div className="bloco">
         <label className="bloco-rotulo" htmlFor="quantidade">
-          {unidade === 'kg' || unidade === 'L' ? 'Quantidade (na loja, o peso da etiqueta)' : 'Quantidade a comprar'}
+          Pedi
         </label>
         <div className="linha-campos">
           <input
@@ -135,90 +176,65 @@ export function FolhaArtigo({
           />
           <Segmentos opcoes={UNIDADES} valor={unidade} aoMudar={setUnidade} />
         </div>
+        {contas.sugerido && (
+          <p className="nota">
+            Estimativa pela última compra:{' '}
+            {contas.peso && !aoPeso ? `≈ ${numero(arredondar(contas.peso.valor, 2))} ${contas.peso.unidade}, ` : ''}≈{' '}
+            {euros(contas.total)}
+          </p>
+        )}
       </div>
 
       <div className="bloco">
-        <div className="linha-campos">
-          <div>
-            <label className="bloco-rotulo" htmlFor="preco">
-              Preço por {nomeUnidade}
-            </label>
-            <input
-              id="preco"
-              ref={refPreco}
-              className={'campo numero' + (editado === 'preco' ? '' : ' calculado')}
-              inputMode="decimal"
-              placeholder="0,00"
-              value={valorPreco}
-              onChange={(e) => {
-                setEditado('preco')
-                setPrecoTxt(e.target.value)
-              }}
-              onFocus={selecionarTudo}
-            />
-          </div>
-          <div>
-            <label className="bloco-rotulo" htmlFor="total">
-              Total pago
-            </label>
-            <input
-              id="total"
-              ref={refTotal}
-              className={'campo numero' + (editado === 'total' ? '' : ' calculado')}
-              inputMode="decimal"
-              placeholder="0,00"
-              value={valorTotal}
-              onChange={(e) => {
-                setEditado('total')
-                setTotalTxt(e.target.value)
-              }}
-              onFocus={selecionarTudo}
-            />
-          </div>
+        <span className="bloco-rotulo">Na loja: o que diz a etiqueta ou a prateleira</span>
+        <div className="grelha-campos">
+          {temPeso && (
+            <div>
+              <label className="bloco-rotulo" htmlFor="campo-peso">
+                Peso{aoPeso ? ' (balança)' : ''}
+              </label>
+              <div className="campo-com-unidade">
+                <input
+                  id="campo-peso"
+                  ref={aoPeso ? refPrimeiro : undefined}
+                  className={'campo numero' + (escritos.peso ? '' : ' calculado')}
+                  inputMode="decimal"
+                  placeholder="—"
+                  value={mostrado.peso}
+                  onChange={(e) => escrever('peso', e.target.value)}
+                  onFocus={selecionarTudo}
+                />
+                <button
+                  type="button"
+                  className="botao pequeno"
+                  aria-label="Mudar a unidade do peso"
+                  onClick={() => {
+                    const nova = ({ g: 'kg', kg: 'g', ml: 'L', L: 'ml' } as const)[pesoUn]
+                    // Converte o que já está escrito: 625 g passa a 0,625 kg.
+                    const n = lerNumero(textos.peso)
+                    if (escritos.peso && n != null) {
+                      const fator = nova === 'g' || nova === 'ml' ? 1000 : 1 / 1000
+                      setTextos((t) => ({ ...t, peso: paraCampo(arredondar(n * fator, 3)) }))
+                    }
+                    setPesoUn(nova)
+                  }}
+                >
+                  {pesoUn}
+                </button>
+              </div>
+            </div>
+          )}
+          {temPeso && campo('precoKg', `Preço/${ref}`)}
+          {temPrecoUn && campo('precoUn', `Preço por ${nomeUnidade}`, !aoPeso)}
+          {campo('total', 'Total')}
         </div>
-        <p className="nota">
-          {contas.sugerido
-            ? 'Preço sugerido da última compra. Se mudou, escreve o novo num dos campos.'
-            : 'Escreve o que tiveres à mão; o outro é calculado.'}
-        </p>
+        <p className="nota">Escreve o que tiveres (chegam dois); o resto é calculado.</p>
       </div>
-
-      {unidade === 'un' && (
-        <div className="bloco">
-          <span className="bloco-rotulo">Peso ou volume (para o preço ao quilo)</span>
-          <Segmentos
-            opcoes={[
-              { valor: 'cada', rotulo: 'Cada um pesa' },
-              { valor: 'junto', rotulo: 'Pesou tudo junto' },
-            ]}
-            valor={pesoModo}
-            aoMudar={setPesoModo}
-          />
-          <div className="linha-campos" style={{ marginTop: 8 }}>
-            <input
-              id="peso"
-              aria-label="Peso ou volume"
-              className="campo numero"
-              inputMode="decimal"
-              placeholder={pesoModo === 'cada' ? 'ex.: 120' : 'ex.: 166'}
-              value={pesoTxt}
-              onChange={(e) => setPesoTxt(e.target.value)}
-              onFocus={selecionarTudo}
-            />
-            <Segmentos opcoes={UNIDADES_PESO} valor={pesoUn} aoMudar={setPesoUn} />
-          </div>
-          <p className="nota">
-            {pesoModo === 'cada'
-              ? 'O que vem escrito na embalagem (nos enlatados, o peso escorrido). Fica guardado no produto.'
-              : 'O peso da balança para tudo o que levas (o pão, por exemplo). Vale só para esta compra.'}
-          </p>
-        </div>
-      )}
 
       <div className="caixa-info">
         <div className="resumo-linha grande">
-          <span>Total</span>
-          <span>{euros(contas.total)}</span>
+          <span>Total{contas.sugerido ? ' (estimado)' : ''}</span>
+          <span>{contas.temPreco ? euros(contas.total) : '—'}</span>
         </div>
         {contas.aoQuilo && (
           <div className="resumo-linha">
@@ -228,18 +244,29 @@ export function FolhaArtigo({
             </span>
           </div>
         )}
-        {produto.ultimoPreco != null && (
+        {porCada && (
+          <div className="resumo-linha">
+            <span>{porCada}</span>
+          </div>
+        )}
+        {produto.ultimoPrecoRef != null || produto.ultimoPreco != null ? (
           <div className="resumo-linha" style={{ fontSize: 14 }}>
             <span>Da última vez</span>
             <span>
-              {euros(produto.ultimoPreco)}/{produto.unidade}
-              {produto.ultimoPrecoRef != null && produto.unidade === 'un'
-                ? ` · ${euros(produto.ultimoPrecoRef)}/${produto.conteudo?.unidade === 'ml' || produto.conteudo?.unidade === 'L' ? 'L' : 'kg'}`
-                : ''}
+              {produto.ultimoPrecoRef != null
+                ? `${euros(produto.ultimoPrecoRef)}/${produto.conteudo?.unidade === 'ml' || produto.unidade === 'L' ? 'L' : 'kg'}`
+                : `${euros(produto.ultimoPreco!)}/${produto.unidade}`}
             </span>
           </div>
-        )}
+        ) : null}
       </div>
+
+      {contas.incoerente && (
+        <div className="caixa-aviso" style={{ marginTop: 8 }}>
+          Os valores não batem certo: pelas contas, o total devia ser {euros(contas.incoerente.totalEsperado)}. Confirma o
+          peso e o total.
+        </div>
+      )}
       {contas.subida && (
         <div className="caixa-aviso" style={{ marginTop: 8 }}>
           {contas.subida.base === 'unidade'
@@ -269,7 +296,7 @@ export function FolhaArtigo({
           Guardar
         </button>
         <button className="botao pequeno largo" onClick={aoEditarProduto}>
-          Mudar nome ou secção do produto
+          Editar produto (nome, secção, peso da embalagem)
         </button>
         <button className="botao perigo largo" onClick={tirar}>
           Tirar da lista

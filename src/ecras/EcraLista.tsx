@@ -13,7 +13,6 @@ import {
   apagarLista,
   criarLista,
   contasArtigo,
-  precoParaArtigo,
   renomearLista,
   reordenarArtigos,
   totalArtigo,
@@ -71,7 +70,8 @@ export function EcraLista({
       if (a.noCarrinho) {
         carrinho += t
         noCarrinho++
-        if (precoParaArtigo(a, p).preco == null && a.totalManual == null) semPreco++
+        const c = contasArtigo(a, p)
+        if (!c.temPreco || c.sugerido) semPreco++
       }
     }
     return { carrinho: arredondar(carrinho), todos: arredondar(todos), noCarrinho, semPreco }
@@ -398,13 +398,16 @@ function LinhaArtigo({
   })
   const estilo = { transform: CSS.Transform.toString(transform), transition }
 
-  const { temPreco, sugerido, total, unitario, aoQuilo, subida } = contasArtigo(artigo, produto)
+  const { temPreco, sugerido, total, unitario, aoQuilo, subida, peso } = contasArtigo(artigo, produto)
   const aoPeso = artigo.unidade === 'kg' || artigo.unidade === 'L'
+  // Peso real da balança, quando é diferente do pedido (6 un → 1,73 kg; 2 kg → 2,05 kg).
+  const pesoReal = artigo.pesoTotal && peso ? `${numero(arredondar(peso.valor, 3))} ${peso.unidade}` : null
 
   const detalhe = [
     `${numero(artigo.quantidade)} ${artigo.unidade}`,
-    unitario != null && !aoPeso ? `${euros(unitario)}/${artigo.unidade}` : null,
-    aoQuilo ? `${euros(aoQuilo.valor)}/${aoQuilo.unidade}` : null,
+    pesoReal,
+    unitario != null && !aoPeso && !sugerido ? `${euros(unitario)}/${artigo.unidade}` : null,
+    aoQuilo && !sugerido ? `${euros(aoQuilo.valor)}/${aoQuilo.unidade}` : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -450,7 +453,7 @@ function LinhaArtigo({
           {temPreco ? (
             <>
               {euros(total)}
-              {sugerido && <span className="sugerido">sugerido</span>}
+              {sugerido && <span className="sugerido">estimado</span>}
             </>
           ) : (
             'Preço'

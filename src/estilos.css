@@ -292,6 +292,28 @@ button {
   text-align: right;
 }
 
+.grelha-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 8px;
+}
+
+.campo-com-unidade {
+  display: flex;
+  gap: 6px;
+}
+
+.campo-com-unidade .campo {
+  flex: 1;
+  min-width: 0;
+}
+
+.campo-com-unidade .botao {
+  flex: none;
+  min-width: 48px;
+  padding: 0 8px;
+}
+
 /* Valor calculado pela aplicação (o outro campo é o que se escreveu). */
 .campo.calculado {
   color: var(--suave);

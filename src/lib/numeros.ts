@@ -23,6 +23,12 @@ export function paraCampo(valor: number | null | undefined): string {
   return String(valor).replace('.', ',')
 }
 
+/** Para mostrar euros num campo: 4.1 → "4,10". */
+export function paraCampoEuros(valor: number | null | undefined): string {
+  if (valor == null) return ''
+  return arredondar(valor).toFixed(2).replace('.', ',')
+}
+
 /** Lê o que se escreve num campo: aceita "1,2", "1.2", " 0,99 € ". Vazio ou inválido → null. */
 export function lerNumero(texto: string): number | null {
   const limpo = texto.replace(/[€\s]/g, '').replace(',', '.')

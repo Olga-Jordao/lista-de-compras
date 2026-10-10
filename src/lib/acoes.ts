@@ -1,5 +1,5 @@
 import { db } from './db'
-import { medidaDaLinha, precoAoQuilo, precoUnitarioEfetivo, subidaDePreco, totalLinha, type Subida } from './precos'
+import { conteudoEmKgOuL, subidaDePreco, type Subida } from './precos'
 import { arredondar } from './numeros'
 import type { Artigo, Base, Compra, LinhaCompra, Lista, NomeTabela, Produto, Seccao, Unidade } from './tipos'
 
@@ -130,6 +130,7 @@ export async function acrescentarArtigo(listaId: string, produto: Produto): Prom
     precoUnitario: null,
     totalManual: null,
     pesoTotal: null,
+    precoKg: null,
     noCarrinho: false,
     fixo: true,
     porComprar: false,
@@ -150,14 +151,18 @@ export async function alterarArtigo(id: string, mudancas: Partial<Artigo>): Prom
 }
 
 /**
- * Mete ou tira do carrinho. Ao meter sem preço escrito, aceita o último preço
- * como sugestão, para o total do carrinho bater certo.
+ * Mete ou tira do carrinho. Ao meter sem nada escrito um produto de preço fixo por
+ * unidade (sem peso), aceita o último preço. Ao peso não: fica como estimativa
+ * até se escrever o que diz a etiqueta.
  */
 export async function alternarCarrinho(artigo: Artigo, produto: Produto | undefined): Promise<void> {
   const mudancas: Partial<Artigo> = { noCarrinho: !artigo.noCarrinho }
   if (!artigo.noCarrinho) {
     mudancas.porComprar = false
-    if (artigo.precoUnitario == null && artigo.totalManual == null && produto?.ultimoPreco != null && artigo.unidade === produto.unidade) {
+    const nadaEscrito =
+      artigo.precoUnitario == null && artigo.totalManual == null && (artigo.precoKg ?? null) == null && !artigo.pesoTotal
+    const precoFixo = (artigo.unidade === 'un' || artigo.unidade === 'dz') && !produto?.conteudo
+    if (nadaEscrito && precoFixo && produto?.ultimoPreco != null && artigo.unidade === produto.unidade) {
       mudancas.precoUnitario = produto.ultimoPreco
     }
   }
@@ -181,51 +186,105 @@ export async function reordenarArtigos(idsPorOrdem: string[]): Promise<void> {
 
 // ---------- Fechar a compra ----------
 
-/** Preço a usar para um artigo: o escrito ou, se não houver, a sugestão do último preço. */
-export function precoParaArtigo(
-  artigo: Pick<Artigo, 'unidade' | 'precoUnitario' | 'totalManual'>,
-  produto: Produto | undefined,
-): { preco: number | null; sugerido: boolean } {
-  if (artigo.precoUnitario != null || artigo.totalManual != null) {
-    return { preco: artigo.precoUnitario, sugerido: false }
-  }
-  if (produto?.ultimoPreco != null && artigo.unidade === produto.unidade) {
-    return { preco: produto.ultimoPreco, sugerido: true }
-  }
-  return { preco: null, sugerido: false }
+/** Total da linha, contando com a estimativa quando ainda não há valores da etiqueta. */
+export function totalArtigo(artigo: Artigo, produto: Produto | undefined): number {
+  return contasArtigo(artigo, produto).total
 }
 
-/** Total da linha contando com a sugestão de preço. */
-export function totalArtigo(artigo: Artigo, produto: Produto | undefined): number {
-  const { preco } = precoParaArtigo(artigo, produto)
-  return totalLinha({ quantidade: artigo.quantidade, precoUnitario: preco, totalManual: artigo.totalManual })
-}
+type PesoKgL = { valor: number; unidade: 'kg' | 'L' }
 
 export interface ContasArtigo {
-  /** Há preço (escrito, total pago ou sugestão)? */
+  /** Há total (escrito, calculado ou estimado)? */
   temPreco: boolean
+  /** O total é uma estimativa da última compra, não o que diz a etiqueta. */
   sugerido: boolean
   total: number
-  /** Preço por unidade de compra (por un, dz, kg ou L), calculado se se escreveu o total. */
+  /** Peso de tudo, em kg ou L: o da balança, o pedido (ao kg) ou quantidade × peso de cada um. */
+  peso: PesoKgL | null
+  /** O peso vem do peso de cada um guardado no produto (embalagem ou média da última vez). */
+  pesoDeCadaUm: boolean
+  /** Preço por unidade pedida (por un ou dz); nos pedidos ao kg ou ao L é igual ao preço ao quilo. */
   unitario: number | null
-  /** Preço ao kg ou ao L, a partir do total e do peso. */
-  aoQuilo: { valor: number; unidade: 'kg' | 'L' } | null
+  /** Preço ao kg ou ao L. */
+  aoQuilo: PesoKgL | null
   subida: Subida | null
+  /** Os valores escritos não batem certo entre si: quanto devia dar o total. */
+  incoerente: { totalEsperado: number } | null
 }
 
-/** Todas as contas de um artigo, iguais na lista, no painel e no fecho da compra. */
-export function contasArtigo(
-  artigo: Pick<Artigo, 'quantidade' | 'unidade' | 'precoUnitario' | 'totalManual' | 'pesoTotal'>,
-  produto: Produto | undefined,
-): ContasArtigo {
-  const { preco, sugerido } = precoParaArtigo(artigo, produto)
-  const temPreco = preco != null || artigo.totalManual != null
-  const total = totalLinha({ quantidade: artigo.quantidade, precoUnitario: preco, totalManual: artigo.totalManual })
-  const unitario = precoUnitarioEfetivo({ quantidade: artigo.quantidade, precoUnitario: preco, totalManual: artigo.totalManual })
-  const medida = medidaDaLinha(artigo.quantidade, artigo.unidade, produto?.conteudo ?? null, artigo.pesoTotal ?? null)
-  const aoQuilo = temPreco ? precoAoQuilo(total, medida) : null
-  const subida = sugerido || !produto ? null : subidaDePreco(produto, unitario, artigo.unidade, aoQuilo)
-  return { temPreco, sugerido, total, unitario, aoQuilo, subida }
+export type CamposArtigo = Pick<Artigo, 'quantidade' | 'unidade' | 'precoUnitario' | 'totalManual' | 'pesoTotal' | 'precoKg'>
+
+/**
+ * Todas as contas de um artigo, iguais na lista, no painel e no fecho da compra.
+ * Na loja escreve-se o que a etiqueta diz (peso, preço/kg, preço por unidade,
+ * total), normalmente dois deles; o resto calcula-se. Sem nada escrito, estima-se
+ * com o preço ao quilo e o peso médio da última compra.
+ */
+export function contasArtigo(artigo: CamposArtigo, produto: Produto | undefined): ContasArtigo {
+  const q = artigo.quantidade
+  const u = artigo.unidade
+  const aoPesoPedido = u === 'kg' || u === 'L'
+  const pesoEscrito = conteudoEmKgOuL(artigo.pesoTotal ?? null)
+  const cadaUm = u === 'un' ? conteudoEmKgOuL(produto?.conteudo ?? null) : null
+  const precoKg = artigo.precoKg ?? null
+  const precoUn = artigo.precoUnitario
+  const totalEscrito = artigo.totalManual
+
+  let peso: PesoKgL | null =
+    pesoEscrito ??
+    (aoPesoPedido && q > 0 ? { valor: q, unidade: u } : cadaUm && q > 0 ? { valor: cadaUm.valor * q, unidade: cadaUm.unidade } : null)
+  const pesoDeCadaUm = !pesoEscrito && !aoPesoPedido && peso != null
+
+  // Total: o escrito; senão peso × preço/kg; senão quantidade × preço por unidade.
+  let total: number | null = null
+  if (totalEscrito != null) total = totalEscrito
+  else if (precoKg != null && peso) total = precoKg * peso.valor
+  else if (precoUn != null) total = q * precoUn
+  else if (precoKg != null && aoPesoPedido) total = q * precoKg
+  const escrito = total != null
+
+  // Etiqueta com preço/kg e total mas sem peso: o peso real é total ÷ preço/kg.
+  if (!pesoEscrito && totalEscrito != null && precoKg != null && precoKg > 0) {
+    peso = { valor: totalEscrito / precoKg, unidade: peso?.unidade ?? (u === 'L' ? 'L' : 'kg') }
+  }
+
+  // Sem nada escrito: estimativa a partir da última compra.
+  if (total == null && produto) {
+    const ref = produto.ultimoPrecoRef
+    if (ref != null && peso) total = ref * peso.valor
+    else if (produto.unidade === u && produto.ultimoPreco != null) total = q * produto.ultimoPreco
+  }
+  const totalFinal = total == null ? null : arredondar(total)
+
+  let aoQuilo: PesoKgL | null = null
+  if (precoKg != null) aoQuilo = { valor: precoKg, unidade: peso?.unidade ?? (u === 'L' ? 'L' : 'kg') }
+  else if (totalFinal != null && peso && peso.valor > 0) aoQuilo = { valor: totalFinal / peso.valor, unidade: peso.unidade }
+
+  // Ao kg ou ao L, o preço "por unidade pedida" é o próprio preço ao quilo.
+  const unitario = aoPesoPedido ? (aoQuilo?.valor ?? null) : totalFinal != null && q > 0 ? totalFinal / q : null
+
+  // Coerência: quando se escreveram valores a mais, confirmam-se uns aos outros.
+  let incoerente: ContasArtigo['incoerente'] = null
+  if (totalEscrito != null) {
+    const esperados: number[] = []
+    if (precoKg != null && pesoEscrito) esperados.push(precoKg * pesoEscrito.valor)
+    if (precoUn != null && !aoPesoPedido) esperados.push(q * precoUn)
+    const longe = esperados.find((e) => Math.abs(e - totalEscrito) > Math.max(0.05, totalEscrito * 0.02))
+    if (longe != null) incoerente = { totalEsperado: arredondar(longe) }
+  }
+
+  const subida = !escrito || !produto ? null : subidaDePreco(produto, unitario, u, aoQuilo)
+  return {
+    temPreco: totalFinal != null,
+    sugerido: !escrito && totalFinal != null,
+    total: totalFinal ?? 0,
+    peso,
+    pesoDeCadaUm,
+    unitario,
+    aoQuilo,
+    subida,
+    incoerente,
+  }
 }
 
 export interface DadosFecho {
@@ -252,7 +311,7 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
     for (const a of comprados) {
       const produto = produtos.get(a.produtoId)
       if (!produto) continue
-      const { unitario: efetivo, total, aoQuilo: ref } = contasArtigo(a, produto)
+      const { unitario: efetivo, total, aoQuilo: ref, sugerido } = contasArtigo(a, produto)
       linhas.push({
         produtoId: produto.id,
         nome: produto.nome,
@@ -266,14 +325,20 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
         refUnidade: ref?.unidade ?? null,
         lojaId: null,
       })
-      // O preço pago passa a ser o "último preço" do produto.
-      if (efetivo != null && a.unidade === produto.unidade) {
-        await gravar<Produto>('produtos', {
-          ...produto,
-          ultimoPreco: arredondar(efetivo, 4),
-          ultimoPrecoRef: ref ? arredondar(ref.valor, 4) : null,
-          ultimoPrecoData: agora,
-        })
+      // O que se pagou passa a ser a referência do produto (as estimativas não contam).
+      if (sugerido) continue
+      const mudancas: Partial<Produto> = { ultimoPrecoData: agora }
+      if (efetivo != null && a.unidade === produto.unidade) mudancas.ultimoPreco = arredondar(efetivo, 4)
+      if (ref) mudancas.ultimoPrecoRef = arredondar(ref.valor, 4)
+      // Pedido à unidade e pesado na balança: fica a média de cada um (6 espetadas,
+      // 1,730 kg → 288 g), para estimar da próxima vez.
+      const pesoBalanca = conteudoEmKgOuL(a.pesoTotal ?? null)
+      if (a.unidade === 'un' && pesoBalanca && a.quantidade > 0) {
+        const g = Math.round((pesoBalanca.valor / a.quantidade) * 1000)
+        mudancas.conteudo = { quantidade: g, unidade: pesoBalanca.unidade === 'L' ? 'ml' : 'g' }
+      }
+      if (mudancas.ultimoPreco != null || mudancas.ultimoPrecoRef != null) {
+        await gravar<Produto>('produtos', { ...produto, ...mudancas })
       }
     }
 
@@ -304,6 +369,7 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
           precoUnitario: null,
           totalManual: null,
           pesoTotal: null,
+          precoKg: null,
         })
       } else {
         await gravar<Artigo>('artigos', { ...a, porComprar: true })

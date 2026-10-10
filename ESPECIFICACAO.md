@@ -82,13 +82,17 @@ frescos**. Posso criar outras, mudar-lhes o nome e apagá-las.
 
 - produto, escolhido do catálogo ou escrito de novo;
 - quantidade com decimais (1,2 kg) e unidade;
-- **preço por unidade e total pago, lado a lado**: escrevo o que tiver à mão e a
-  aplicação calcula o outro (bebida de aveia, 18 L a 0,99 € dá 17,82 €; carne,
-  1,8 kg por 18,45 € dá 10,25 €/kg). Na loja, nos produtos ao peso, o que tenho é
-  o peso e o total da etiqueta, e é a aplicação que me dá o preço ao quilo;
-- **peso nos produtos à unidade**, de duas formas: "cada um pesa" (o que vem na
-  embalagem, fica guardado no produto) ou "pesou tudo junto" (o peso da balança
-  só para esta compra, como o pão: 2 bolas, 166 g, 0,88 € dá 5,30 €/kg);
+- **o que pedi** (6 un, 2 kg) e, na loja, **o que diz a etiqueta ou a prateleira**:
+  peso, preço/kg, preço por unidade e total. Escrevo o que tiver (normalmente dois)
+  e a aplicação calcula o resto. Não há nada a escolher no produto: no talho, na
+  frutaria e na padaria peço à unidade ou ao peso e pago sempre ao quilo.
+  Exemplos: 6 espetadas, balança 1,730 kg a 10,99 €/kg → 19,01 € (cada uma ≈ 288 g);
+  2 kg de fígado, balança 2,050 kg a 2,00 €/kg → 4,10 €; 8 kiwis a 5,76 €/kg por
+  11,52 € → 2 kg; atum, 6 latas a 1,79 € com 120 g cada → 14,92 €/kg;
+- **aviso de valores que não batem certo**: se escrevo peso, preço/kg e total e
+  peso × preço/kg não dá o total, a aplicação avisa (engano meu ou da balança);
+- **estimativa em casa**: com o preço ao quilo e o peso médio de cada unidade da
+  última compra, "6 espetadas" já mostra ≈ 1,73 kg e ≈ 19 €, e "1 kg" ≈ 10,99 €;
 - **fixo ou só desta vez**: os fixos ficam sempre na lista, os "só desta vez" saem
   quando fecho a compra;
 - **origem**: escrito à mão ou vindo de uma refeição. Por agora é sempre à mão, mas
@@ -183,6 +187,10 @@ secção, com as **quantidades somadas** quando duas refeições pedem o mesmo p
 
 ## Ideias para mais tarde (não construir)
 
+- **Transformar num produto para outras pessoas.** Obrigaria a contas de
+  utilizador abertas, a separar os dados de cada pessoa (a base de dados já está
+  preparada para isso) e a rever textos e ajuda. Decidir só depois de a fase B
+  estar a uso.
 - **Fotografar o talão** no fim da compra e a aplicação preencher os preços
   sozinha, lendo o talão com IA. Substitui com vantagem a ligação aos sites dos
   supermercados.
