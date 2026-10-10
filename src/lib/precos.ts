@@ -51,6 +51,36 @@ export function precoReferencia(
   return { valor: precoUnitario / c.valor, unidade: c.unidade }
 }
 
+type Medida = { quantidade: number; unidade: UnidadeConteudo }
+
+/**
+ * Peso ou volume total de uma linha, em kg ou L: nos produtos ao kg ou ao L é a
+ * própria quantidade; nos produtos à unidade é o peso pesado na loja (tudo junto)
+ * ou, se não houver, quantidade × conteúdo de cada embalagem.
+ */
+export function medidaDaLinha(
+  quantidade: number,
+  unidade: Unidade,
+  conteudoProduto: Medida | null,
+  pesoTotal: Medida | null,
+): { valor: number; unidade: 'kg' | 'L' } | null {
+  if (unidade === 'kg' || unidade === 'L') return quantidade > 0 ? { valor: quantidade, unidade } : null
+  if (unidade !== 'un') return null
+  const total = conteudoEmKgOuL(pesoTotal)
+  if (total) return total
+  const cada = conteudoEmKgOuL(conteudoProduto)
+  return cada && quantidade > 0 ? { valor: cada.valor * quantidade, unidade: cada.unidade } : null
+}
+
+/** Preço ao kg ou ao L a partir do que se pagou: total ÷ peso. */
+export function precoAoQuilo(
+  total: number | null,
+  medida: { valor: number; unidade: 'kg' | 'L' } | null,
+): { valor: number; unidade: 'kg' | 'L' } | null {
+  if (total == null || !medida || !(medida.valor > 0)) return null
+  return { valor: total / medida.valor, unidade: medida.unidade }
+}
+
 export interface Subida {
   /** Diferença em euros (por unidade, ou por kg/L quando compara referências). */
   diferenca: number
@@ -65,12 +95,12 @@ export interface Subida {
  * Devolve null se não subiu.
  */
 export function subidaDePreco(
-  produto: Pick<Produto, 'ultimoPreco' | 'ultimoPrecoRef' | 'unidade' | 'conteudo'>,
+  produto: Pick<Produto, 'ultimoPreco' | 'ultimoPrecoRef' | 'unidade'>,
   precoNovo: number | null,
   unidadeArtigo: Unidade,
+  refNova: { valor: number; unidade: 'kg' | 'L' } | null,
 ): Subida | null {
   if (precoNovo == null) return null
-  const refNova = precoReferencia(precoNovo, unidadeArtigo, produto.conteudo)
   if (refNova && produto.ultimoPrecoRef != null && unidadeArtigo === produto.unidade) {
     return comparar(produto.ultimoPrecoRef, refNova.valor, refNova.unidade)
   }

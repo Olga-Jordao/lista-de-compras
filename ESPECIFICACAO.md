@@ -82,10 +82,13 @@ frescos**. Posso criar outras, mudar-lhes o nome e apagá-las.
 
 - produto, escolhido do catálogo ou escrito de novo;
 - quantidade com decimais (1,2 kg) e unidade;
-- preço unitário, com o total da linha calculado sozinho (bebida de aveia, 18, L,
-  0,99 € dá 17,82 €);
-- **total escrito à mão**, como alternativa ao preço unitário, para os produtos ao
-  peso em que só sei o valor quando vejo a etiqueta da balança;
+- **preço por unidade e total pago, lado a lado**: escrevo o que tiver à mão e a
+  aplicação calcula o outro (bebida de aveia, 18 L a 0,99 € dá 17,82 €; carne,
+  1,8 kg por 18,45 € dá 10,25 €/kg). Na loja, nos produtos ao peso, o que tenho é
+  o peso e o total da etiqueta, e é a aplicação que me dá o preço ao quilo;
+- **peso nos produtos à unidade**, de duas formas: "cada um pesa" (o que vem na
+  embalagem, fica guardado no produto) ou "pesou tudo junto" (o peso da balança
+  só para esta compra, como o pão: 2 bolas, 166 g, 0,88 € dá 5,30 €/kg);
 - **fixo ou só desta vez**: os fixos ficam sempre na lista, os "só desta vez" saem
   quando fecho a compra;
 - **origem**: escrito à mão ou vindo de uma refeição. Por agora é sempre à mão, mas

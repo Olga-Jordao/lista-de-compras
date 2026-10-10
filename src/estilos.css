@@ -292,6 +292,12 @@ button {
   text-align: right;
 }
 
+/* Valor calculado pela aplicação (o outro campo é o que se escreveu). */
+.campo.calculado {
+  color: var(--suave);
+  background: transparent;
+}
+
 /* ---------- Acrescentar ---------- */
 
 .acrescentar {

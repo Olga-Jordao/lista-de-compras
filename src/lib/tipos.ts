@@ -46,8 +46,13 @@ export interface Artigo extends Base {
   unidade: Unidade
   /** Preço por unidade escrito na loja (ou a sugestão aceite). */
   precoUnitario: number | null
-  /** Total da etiqueta da balança, em alternativa ao preço unitário. */
+  /** Total pago (etiqueta, talão), em alternativa ao preço unitário. */
   totalManual: number | null
+  /**
+   * Nos produtos à unidade pesados na loja (pão, por exemplo): o peso de tudo junto,
+   * para o preço ao quilo. Pode faltar em registos antigos.
+   */
+  pesoTotal?: { quantidade: number; unidade: UnidadeConteudo } | null
   noCarrinho: boolean
   /** Fixo fica na lista depois de fechar a compra; só desta vez sai. */
   fixo: boolean

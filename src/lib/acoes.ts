@@ -1,5 +1,5 @@
 import { db } from './db'
-import { precoReferencia, precoUnitarioEfetivo, totalLinha } from './precos'
+import { medidaDaLinha, precoAoQuilo, precoUnitarioEfetivo, subidaDePreco, totalLinha, type Subida } from './precos'
 import { arredondar } from './numeros'
 import type { Artigo, Base, Compra, LinhaCompra, Lista, NomeTabela, Produto, Seccao, Unidade } from './tipos'
 
@@ -129,6 +129,7 @@ export async function acrescentarArtigo(listaId: string, produto: Produto): Prom
     unidade: produto.unidade,
     precoUnitario: null,
     totalManual: null,
+    pesoTotal: null,
     noCarrinho: false,
     fixo: true,
     porComprar: false,
@@ -181,7 +182,10 @@ export async function reordenarArtigos(idsPorOrdem: string[]): Promise<void> {
 // ---------- Fechar a compra ----------
 
 /** Preço a usar para um artigo: o escrito ou, se não houver, a sugestão do último preço. */
-export function precoParaArtigo(artigo: Artigo, produto: Produto | undefined): { preco: number | null; sugerido: boolean } {
+export function precoParaArtigo(
+  artigo: Pick<Artigo, 'unidade' | 'precoUnitario' | 'totalManual'>,
+  produto: Produto | undefined,
+): { preco: number | null; sugerido: boolean } {
   if (artigo.precoUnitario != null || artigo.totalManual != null) {
     return { preco: artigo.precoUnitario, sugerido: false }
   }
@@ -195,6 +199,33 @@ export function precoParaArtigo(artigo: Artigo, produto: Produto | undefined): {
 export function totalArtigo(artigo: Artigo, produto: Produto | undefined): number {
   const { preco } = precoParaArtigo(artigo, produto)
   return totalLinha({ quantidade: artigo.quantidade, precoUnitario: preco, totalManual: artigo.totalManual })
+}
+
+export interface ContasArtigo {
+  /** Há preço (escrito, total pago ou sugestão)? */
+  temPreco: boolean
+  sugerido: boolean
+  total: number
+  /** Preço por unidade de compra (por un, dz, kg ou L), calculado se se escreveu o total. */
+  unitario: number | null
+  /** Preço ao kg ou ao L, a partir do total e do peso. */
+  aoQuilo: { valor: number; unidade: 'kg' | 'L' } | null
+  subida: Subida | null
+}
+
+/** Todas as contas de um artigo, iguais na lista, no painel e no fecho da compra. */
+export function contasArtigo(
+  artigo: Pick<Artigo, 'quantidade' | 'unidade' | 'precoUnitario' | 'totalManual' | 'pesoTotal'>,
+  produto: Produto | undefined,
+): ContasArtigo {
+  const { preco, sugerido } = precoParaArtigo(artigo, produto)
+  const temPreco = preco != null || artigo.totalManual != null
+  const total = totalLinha({ quantidade: artigo.quantidade, precoUnitario: preco, totalManual: artigo.totalManual })
+  const unitario = precoUnitarioEfetivo({ quantidade: artigo.quantidade, precoUnitario: preco, totalManual: artigo.totalManual })
+  const medida = medidaDaLinha(artigo.quantidade, artigo.unidade, produto?.conteudo ?? null, artigo.pesoTotal ?? null)
+  const aoQuilo = temPreco ? precoAoQuilo(total, medida) : null
+  const subida = sugerido || !produto ? null : subidaDePreco(produto, unitario, artigo.unidade, aoQuilo)
+  return { temPreco, sugerido, total, unitario, aoQuilo, subida }
 }
 
 export interface DadosFecho {
@@ -221,9 +252,7 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
     for (const a of comprados) {
       const produto = produtos.get(a.produtoId)
       if (!produto) continue
-      const { preco } = precoParaArtigo(a, produto)
-      const efetivo = precoUnitarioEfetivo({ quantidade: a.quantidade, precoUnitario: preco, totalManual: a.totalManual })
-      const ref = precoReferencia(efetivo, a.unidade, produto.conteudo)
+      const { unitario: efetivo, total, aoQuilo: ref } = contasArtigo(a, produto)
       linhas.push({
         produtoId: produto.id,
         nome: produto.nome,
@@ -232,7 +261,7 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
         quantidade: a.quantidade,
         unidade: a.unidade,
         precoUnitario: efetivo == null ? null : arredondar(efetivo, 4),
-        total: totalLinha({ quantidade: a.quantidade, precoUnitario: preco, totalManual: a.totalManual }),
+        total,
         precoRef: ref ? arredondar(ref.valor, 4) : null,
         refUnidade: ref?.unidade ?? null,
         lojaId: null,
@@ -268,7 +297,14 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
       if (a.noCarrinho && !a.fixo) {
         await gravar<Artigo>('artigos', { ...a, apagado: true })
       } else if (a.noCarrinho) {
-        await gravar<Artigo>('artigos', { ...a, noCarrinho: false, porComprar: false, precoUnitario: null, totalManual: null })
+        await gravar<Artigo>('artigos', {
+          ...a,
+          noCarrinho: false,
+          porComprar: false,
+          precoUnitario: null,
+          totalManual: null,
+          pesoTotal: null,
+        })
       } else {
         await gravar<Artigo>('artigos', { ...a, porComprar: true })
       }

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { acrescentarArtigo, alterarArtigo, alternarCarrinho, criarProduto, fecharCompra, totalArtigo } from './acoes'
+import { acrescentarArtigo, alterarArtigo, alternarCarrinho, contasArtigo, criarProduto, fecharCompra, totalArtigo } from './acoes'
 import { db } from './db'
 import { idSeccaoInicial, prepararDadosIniciais } from './inicial'
 import { aplicar } from './sync'
@@ -60,6 +60,32 @@ describe('lista e fecho de compra', () => {
     expect(totalArtigo(artigo, produto)).toBe(5)
     await alternarCarrinho(artigo, produto)
     expect((await db.artigos.get(a.id))?.precoUnitario).toBe(2.5)
+  })
+})
+
+describe('total pago em vez de preço por kg', () => {
+  it('ao fechar, o último preço por kg sai do peso e do total pago', async () => {
+    const talho = idSeccaoInicial('Talho')
+    const carne = await criarProduto('Carne picada mista', talho, 'kg')
+    const a = await acrescentarArtigo('lista-semanal', carne)
+    await alterarArtigo(a.id, { quantidade: 1.8, totalManual: 18.45, noCarrinho: true })
+    const compra = await fecharCompra({ listaId: 'lista-semanal', modo: 'loja', totalPago: null, motivoDesconto: null })
+    expect(compra?.linhas[0].total).toBe(18.45)
+    expect(compra?.linhas[0].precoRef).toBeCloseTo(10.25, 2)
+    expect((await db.produtos.get(carne.id))?.ultimoPreco).toBeCloseTo(10.25, 2)
+  })
+
+  it('pão pesado tudo junto guarda o preço ao quilo da compra', async () => {
+    const padaria = idSeccaoInicial('Padaria')
+    const pao = await criarProduto('Pão', padaria, 'un')
+    const a = await acrescentarArtigo('lista-semanal', pao)
+    await alterarArtigo(a.id, { quantidade: 2, totalManual: 0.88, pesoTotal: { quantidade: 166, unidade: 'g' }, noCarrinho: true })
+    const artigo = (await db.artigos.get(a.id))!
+    expect(contasArtigo(artigo, pao).aoQuilo?.valor).toBeCloseTo(5.3, 2)
+    const compra = await fecharCompra({ listaId: 'lista-semanal', modo: 'loja', totalPago: null, motivoDesconto: null })
+    expect(compra?.linhas[0].precoUnitario).toBe(0.44)
+    expect(compra?.linhas[0].precoRef).toBeCloseTo(5.3, 2)
+    expect((await db.artigos.get(a.id))?.pesoTotal).toBeNull()
   })
 })
 

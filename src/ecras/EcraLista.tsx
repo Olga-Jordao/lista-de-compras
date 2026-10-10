@@ -12,13 +12,13 @@ import {
   alternarCarrinho,
   apagarLista,
   criarLista,
+  contasArtigo,
   precoParaArtigo,
   renomearLista,
   reordenarArtigos,
   totalArtigo,
 } from '../lib/acoes'
 import { arredondar, euros, numero } from '../lib/numeros'
-import { precoReferencia, subidaDePreco } from '../lib/precos'
 import type { Artigo, Lista, Produto, Seccao } from '../lib/tipos'
 import { normalizar, useArtigos, useProdutos, useSeccoes } from '../lib/usar'
 
@@ -398,17 +398,13 @@ function LinhaArtigo({
   })
   const estilo = { transform: CSS.Transform.toString(transform), transition }
 
-  const { preco, sugerido } = precoParaArtigo(artigo, produto)
-  const total = totalArtigo(artigo, produto)
-  const temPreco = preco != null || artigo.totalManual != null
-  const efetivo = artigo.totalManual != null ? (artigo.quantidade > 0 ? artigo.totalManual / artigo.quantidade : null) : preco
-  const ref = precoReferencia(efetivo, artigo.unidade, produto.conteudo)
-  const subida = sugerido ? null : subidaDePreco(produto, efetivo, artigo.unidade)
+  const { temPreco, sugerido, total, unitario, aoQuilo, subida } = contasArtigo(artigo, produto)
+  const aoPeso = artigo.unidade === 'kg' || artigo.unidade === 'L'
 
   const detalhe = [
     `${numero(artigo.quantidade)} ${artigo.unidade}`,
-    artigo.totalManual != null ? 'etiqueta' : preco != null ? `${euros(preco)}/${artigo.unidade}` : null,
-    ref && artigo.unidade === 'un' ? `${euros(ref.valor)}/${ref.unidade}` : null,
+    unitario != null && !aoPeso ? `${euros(unitario)}/${artigo.unidade}` : null,
+    aoQuilo ? `${euros(aoQuilo.valor)}/${aoQuilo.unidade}` : null,
   ]
     .filter(Boolean)
     .join(' · ')
