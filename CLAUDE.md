@@ -66,6 +66,10 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
 - **Supabase:** projeto próprio "Lista de Compras" (ref `hqriuqulxvqqwtapiqed`,
   região eu-west-1, plano gratuito), criado a 09/10/2026. Não usar os outros
   projetos da conta.
+- **Cópias de segurança:** repositório privado `Olga-Jordao/copias-supabase`, com uma
+  tarefa noturna que copia esta base de dados (e a da Calculadora). A estrutura da
+  base de dados está em `supabase/migrations/`. Nunca pôr dados reais neste
+  repositório, que é público.
 - **Publicação:** repositório público no GitHub (conta Olga-Jordao) com GitHub
   Pages. Pode passar mais tarde para o Vercel com repositório privado.
 - **Construção:** no Claude Code, nesta pasta. Não usar o Lovable em paralelo no
