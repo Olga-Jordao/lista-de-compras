@@ -35,6 +35,18 @@ export interface Produto extends Base {
 export interface Lista extends Base {
   nome: string
   ordem: number
+  /** "Repetir a lista" junta o que se comprou nesta lista nos últimos N dias (31 por omissão). */
+  periodoRepetirDias?: number
+}
+
+/** Orçamento do mês: um só, para todas as listas. Registo único com id 'orcamento'. */
+export interface Orcamento extends Base {
+  nome: string
+  valor: number | null
+  /** Dia em que o mês começa (1 a 28): com 8, outubro vai de 8 de outubro a 7 de novembro. */
+  diaInicio: number
+  /** Carregou em "Agora não" no convite. */
+  conviteDispensado: boolean
 }
 
 export type Origem = 'manual' | 'refeicao'
@@ -56,10 +68,14 @@ export interface Artigo extends Base {
   /** Preço ao quilo (ou ao litro) escrito da etiqueta. Pode faltar em registos antigos. */
   precoKg?: number | null
   noCarrinho: boolean
-  /** Fixo fica na lista depois de fechar a compra; só desta vez sai. */
+  /** Antigo (já não se usa): ao fechar, tudo o que se comprou sai da lista. */
   fixo: boolean
-  /** Ficou por comprar na última compra fechada. */
+  /** Antigo (já não se usa); ver naoCompradoDesde. */
   porComprar: boolean
+  /** Data do primeiro fecho de compra em que ficou por comprar. */
+  naoCompradoDesde?: string | null
+  /** Quantas compras se fecharam sem o comprar. */
+  fechosSemComprar?: number
   origem: Origem
   /** Fase C: refeição de onde veio, quando a origem é 'refeicao'. */
   refeicaoId: string | null
@@ -95,5 +111,5 @@ export interface Compra extends Base {
   linhas: LinhaCompra[]
 }
 
-export type NomeTabela = 'seccoes' | 'produtos' | 'listas' | 'artigos' | 'compras'
-export const TABELAS: NomeTabela[] = ['seccoes', 'produtos', 'listas', 'artigos', 'compras']
+export type NomeTabela = 'seccoes' | 'produtos' | 'listas' | 'artigos' | 'compras' | 'definicoes'
+export const TABELAS: NomeTabela[] = ['seccoes', 'produtos', 'listas', 'artigos', 'compras', 'definicoes']

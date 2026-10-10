@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { BotaoTema } from '../componentes/BotaoTema'
 import { FolhaProduto } from '../componentes/FolhaProduto'
 import { euros } from '../lib/numeros'
 import { precoReferencia } from '../lib/precos'
@@ -35,7 +36,10 @@ export function EcraCatalogo({
 
   return (
     <>
-      <h1 className="titulo-ecra">Catálogo</h1>
+      <div className="cabeca-ecra">
+        <h1 className="titulo-ecra">Catálogo</h1>
+        <BotaoTema />
+      </div>
       <div className="conteudo">
         <p className="nota">
           Todos os teus produtos, com o último preço que pagaste. Toca no nome para o editar; toca em «+ Lista» para o

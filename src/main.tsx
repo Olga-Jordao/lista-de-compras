@@ -6,9 +6,12 @@ import { FornecedorAvisos } from './componentes/AvisoRapido'
 import { db } from './lib/db'
 import { prepararDadosIniciais } from './lib/inicial'
 import { iniciarSync } from './lib/sync'
+import { aplicarTema } from './lib/tema'
 import './estilos.css'
 
 async function arrancar() {
+  // Cores escolhidas neste aparelho (escuro por omissão), antes de desenhar.
+  aplicarTema()
   // Quando há versão nova publicada, instala-a e recarrega sozinha (sem precisar de F5 duas vezes).
   registerSW({ immediate: true })
   // Pede ao browser para não apagar os dados deste site quando faltar espaço.

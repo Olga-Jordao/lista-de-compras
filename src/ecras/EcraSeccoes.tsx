@@ -22,8 +22,7 @@ export function EcraSeccoes() {
 
   return (
     <>
-      <h1 className="titulo-ecra">Secções</h1>
-      <div className="conteudo">
+      <div>
         <p className="nota">Arrasta pela pega para ficarem pela ordem em que andas na loja. A lista segue esta ordem.</p>
         <div className="cartao">
           <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={aoLargar}>

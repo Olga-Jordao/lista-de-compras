@@ -1,7 +1,7 @@
 import { db } from './db'
 import { conteudoEmKgOuL, subidaDePreco, type Subida } from './precos'
 import { arredondar } from './numeros'
-import type { Artigo, Base, Compra, LinhaCompra, Lista, NomeTabela, Produto, Seccao, Unidade } from './tipos'
+import type { Artigo, Base, Compra, LinhaCompra, Lista, NomeTabela, Orcamento, Produto, Seccao, Unidade } from './tipos'
 
 // Todas as alterações passam por aqui: marcam o registo como "sujo" (por enviar) e
 // avisam a sincronização.
@@ -116,7 +116,11 @@ export async function apagarLista(id: string): Promise<void> {
 // ---------- Artigos ----------
 
 /** Põe um produto na lista. Se já lá estiver, devolve o artigo que existe. */
-export async function acrescentarArtigo(listaId: string, produto: Produto): Promise<Artigo> {
+export async function acrescentarArtigo(
+  listaId: string,
+  produto: Produto,
+  pedido?: { quantidade: number; unidade: Unidade },
+): Promise<Artigo> {
   const daLista = (await db.artigos.where('listaId').equals(listaId).toArray()).filter((a) => !a.apagado)
   const existente = daLista.find((a) => a.produtoId === produto.id)
   if (existente) return existente
@@ -125,8 +129,10 @@ export async function acrescentarArtigo(listaId: string, produto: Produto): Prom
     id: novoId(),
     listaId,
     produtoId: produto.id,
-    quantidade: 1,
-    unidade: produto.unidade,
+    quantidade: pedido?.quantidade ?? 1,
+    unidade: pedido?.unidade ?? produto.unidade,
+    naoCompradoDesde: null,
+    fechosSemComprar: 0,
     precoUnitario: null,
     totalManual: null,
     pesoTotal: null,
@@ -143,6 +149,50 @@ export async function acrescentarArtigo(listaId: string, produto: Produto): Prom
   })
   avisar()
   return a
+}
+
+/** "Repetir a lista": põe vários produtos na lista de uma vez, com a quantidade escolhida. */
+export async function acrescentarVarios(
+  listaId: string,
+  itens: { produtoId: string; quantidade: number; unidade: Unidade }[],
+): Promise<number> {
+  let postos = 0
+  for (const item of itens) {
+    const produto = await db.produtos.get(item.produtoId)
+    if (!produto || produto.apagado) continue
+    const daLista = (await db.artigos.where('listaId').equals(listaId).toArray()).filter((a) => !a.apagado)
+    if (daLista.some((a) => a.produtoId === produto.id)) continue
+    await acrescentarArtigo(listaId, produto, { quantidade: item.quantidade, unidade: item.unidade })
+    postos++
+  }
+  return postos
+}
+
+/** Apaga uma compra do histórico (deixa de contar para o orçamento). */
+export async function apagarCompra(id: string): Promise<void> {
+  await alterar<Compra>('compras', id, { apagado: true })
+  avisar()
+}
+
+// ---------- Orçamento ----------
+
+export const ID_ORCAMENTO = 'orcamento'
+
+export async function guardarOrcamento(mudancas: Partial<Orcamento>): Promise<void> {
+  const atual = await db.definicoes.get(ID_ORCAMENTO)
+  await gravar<Orcamento>('definicoes', {
+    id: ID_ORCAMENTO,
+    nome: 'Alimentação e casa',
+    valor: null,
+    diaInicio: 1,
+    conviteDispensado: false,
+    atualizadoEm: 0,
+    apagado: false,
+    sujo: 1,
+    ...atual,
+    ...mudancas,
+  })
+  avisar()
 }
 
 export async function alterarArtigo(id: string, mudancas: Partial<Artigo>): Promise<void> {
@@ -358,21 +408,17 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
       sujo: 1,
     })
 
+    // O que se comprou sai da lista (fica guardado na compra); o que não se comprou
+    // fica, e conta quantas vezes se fechou sem o comprar.
     for (const a of artigos) {
-      if (a.noCarrinho && !a.fixo) {
+      if (a.noCarrinho) {
         await gravar<Artigo>('artigos', { ...a, apagado: true })
-      } else if (a.noCarrinho) {
+      } else {
         await gravar<Artigo>('artigos', {
           ...a,
-          noCarrinho: false,
-          porComprar: false,
-          precoUnitario: null,
-          totalManual: null,
-          pesoTotal: null,
-          precoKg: null,
+          naoCompradoDesde: a.naoCompradoDesde ?? agora,
+          fechosSemComprar: (a.fechosSemComprar ?? 0) + 1,
         })
-      } else {
-        await gravar<Artigo>('artigos', { ...a, porComprar: true })
       }
     }
   })

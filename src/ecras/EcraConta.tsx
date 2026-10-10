@@ -68,8 +68,7 @@ export function EcraConta() {
 
   return (
     <>
-      <h1 className="titulo-ecra">Sincronizar</h1>
-      <div className="conteudo">
+      <div>
         {email ? (
           <>
             <div className="caixa-info">

@@ -113,8 +113,8 @@ export function FolhaFechar({
       </div>
 
       <p className="nota">
-        Os artigos que ficam sempre na lista desmarcam-se para a próxima vez, e os de «só desta vez» saem.
-        {ficam > 0 && ` ${ficam === 1 ? 'O artigo que não compraste fica' : `Os ${ficam} artigos que não compraste ficam`} na lista, assinalado${ficam === 1 ? '' : 's'}.`}
+        O que está no carrinho sai da lista e fica guardado em Compras, com a data.
+        {ficam > 0 && ` ${ficam === 1 ? 'O artigo que não compraste fica' : `Os ${ficam} artigos que não compraste ficam`} na lista.`}
       </p>
 
       <div className="botoes-folha">

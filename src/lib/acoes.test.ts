@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { acrescentarArtigo, alterarArtigo, alternarCarrinho, contasArtigo, criarProduto, fecharCompra, totalArtigo } from './acoes'
 import { db } from './db'
 import { idSeccaoInicial, prepararDadosIniciais } from './inicial'
+import { mostrarNaoComprado } from './repetir'
 import { aplicar } from './sync'
 
 beforeEach(async () => {
@@ -15,7 +16,7 @@ const MERCEARIA = idSeccaoInicial('Mercearia')
 describe('lista e fecho de compra', () => {
   it('começa com as 13 secções e as duas listas', async () => {
     expect(await db.seccoes.count()).toBe(13)
-    expect((await db.listas.toArray()).map((l) => l.nome).sort()).toEqual(['Mensal', 'Semanal de frescos'])
+    expect((await db.listas.toArray()).map((l) => l.nome).sort()).toEqual(['Compras do mês', 'Frescos da semana'])
   })
 
   it('não repete um produto que já está na lista', async () => {
@@ -25,7 +26,7 @@ describe('lista e fecho de compra', () => {
     expect(b.id).toBe(a.id)
   })
 
-  it('fecha a compra: guarda, atualiza o último preço, desmarca fixos, tira os de uma vez e assinala os que ficaram', async () => {
+  it('fecha a compra: guarda, atualiza o último preço, esvazia o que se comprou e deixa o resto', async () => {
     const aveia = await criarProduto('Bebida de aveia', MERCEARIA, 'L')
     const pilhas = await criarProduto('Pilhas', MERCEARIA, 'un')
     const arroz = await criarProduto('Arroz', MERCEARIA, 'un')
@@ -33,7 +34,7 @@ describe('lista e fecho de compra', () => {
     const aAveia = await acrescentarArtigo('lista-mensal', aveia)
     await alterarArtigo(aAveia.id, { quantidade: 18, precoUnitario: 0.99, noCarrinho: true })
     const aPilhas = await acrescentarArtigo('lista-mensal', pilhas)
-    await alterarArtigo(aPilhas.id, { precoUnitario: 5, noCarrinho: true, fixo: false })
+    await alterarArtigo(aPilhas.id, { precoUnitario: 5, noCarrinho: true })
     const aArroz = await acrescentarArtigo('lista-mensal', arroz)
 
     const compra = await fecharCompra({ listaId: 'lista-mensal', modo: 'loja', totalPago: 20, motivoDesconto: 'Pontos' })
@@ -42,24 +43,33 @@ describe('lista e fecho de compra', () => {
     expect(compra?.linhas).toHaveLength(2)
 
     expect((await db.produtos.get(aveia.id))?.ultimoPreco).toBe(0.99)
-    const aveiaDepois = await db.artigos.get(aAveia.id)
-    expect(aveiaDepois?.noCarrinho).toBe(false)
-    expect(aveiaDepois?.precoUnitario).toBeNull()
+    expect((await db.artigos.get(aAveia.id))?.apagado).toBe(true)
     expect((await db.artigos.get(aPilhas.id))?.apagado).toBe(true)
-    expect((await db.artigos.get(aArroz.id))?.porComprar).toBe(true)
+    const arrozDepois = (await db.artigos.get(aArroz.id))!
+    expect(arrozDepois.apagado).toBe(false)
+    expect(arrozDepois.fechosSemComprar).toBe(1)
+    // A meio da semana ainda não diz "Não comprado".
+    expect(mostrarNaoComprado(arrozDepois)).toBe(false)
+
+    // Fecha-se outra compra sem o arroz: agora já diz.
+    const a2 = await acrescentarArtigo('lista-mensal', aveia)
+    await alterarArtigo(a2.id, { precoUnitario: 1, noCarrinho: true })
+    await fecharCompra({ listaId: 'lista-mensal', modo: 'loja', totalPago: null, motivoDesconto: null })
+    expect(mostrarNaoComprado((await db.artigos.get(aArroz.id))!)).toBe(true)
   })
 
-  it('o último preço aparece como sugestão e é aceite ao pôr no carrinho', async () => {
+  it('ao voltar a pôr na lista, o último preço aparece como estimativa e é aceite ao pôr no carrinho', async () => {
     const ovos = await criarProduto('Ovos', MERCEARIA, 'un')
     const a = await acrescentarArtigo('lista-semanal', ovos)
     await alterarArtigo(a.id, { quantidade: 2, precoUnitario: 2.5, noCarrinho: true })
     await fecharCompra({ listaId: 'lista-semanal', modo: 'loja', totalPago: null, motivoDesconto: null })
 
-    const artigo = (await db.artigos.get(a.id))!
     const produto = (await db.produtos.get(ovos.id))!
-    expect(totalArtigo(artigo, produto)).toBe(5)
-    await alternarCarrinho(artigo, produto)
-    expect((await db.artigos.get(a.id))?.precoUnitario).toBe(2.5)
+    const outra = await acrescentarArtigo('lista-semanal', produto, { quantidade: 2, unidade: 'un' })
+    expect(outra.id).not.toBe(a.id)
+    expect(totalArtigo(outra, produto)).toBe(5)
+    await alternarCarrinho(outra, produto)
+    expect((await db.artigos.get(outra.id))?.precoUnitario).toBe(2.5)
   })
 })
 
@@ -85,7 +95,7 @@ describe('total pago em vez de preço por kg', () => {
     const compra = await fecharCompra({ listaId: 'lista-semanal', modo: 'loja', totalPago: null, motivoDesconto: null })
     expect(compra?.linhas[0].precoUnitario).toBe(0.44)
     expect(compra?.linhas[0].precoRef).toBeCloseTo(5.3, 2)
-    expect((await db.artigos.get(a.id))?.pesoTotal).toBeNull()
+    expect((await db.artigos.get(a.id))?.apagado).toBe(true)
   })
 })
 
@@ -107,7 +117,7 @@ describe('pedir à unidade ou ao peso, pagar ao quilo', () => {
     expect(depois.conteudo).toEqual({ quantidade: 288, unidade: 'g' })
 
     // Da próxima vez, em casa: "6 espetadas" já dá uma estimativa.
-    const proxima = (await db.artigos.get(a.id))!
+    const proxima = await acrescentarArtigo('lista-semanal', depois, { quantidade: 6, unidade: 'un' })
     const estimativa = contasArtigo(proxima, depois)
     expect(estimativa.sugerido).toBe(true)
     expect(estimativa.total).toBeCloseTo(18.99, 1)

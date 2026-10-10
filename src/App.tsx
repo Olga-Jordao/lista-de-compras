@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { acrescentarArtigo } from './lib/acoes'
 import type { Produto } from './lib/tipos'
-import { IconeCatalogo, IconeConta, IconeLista, IconeSeccoes } from './componentes/Icones'
+import { IconeCatalogo, IconeCompras, IconeDefinicoes, IconeLista } from './componentes/Icones'
 import { EcraCatalogo } from './ecras/EcraCatalogo'
-import { EcraConta } from './ecras/EcraConta'
+import { EcraCompras } from './ecras/EcraCompras'
+import { EcraDefinicoes } from './ecras/EcraDefinicoes'
 import { EcraLista } from './ecras/EcraLista'
-import { EcraSeccoes } from './ecras/EcraSeccoes'
 import { useEstadoSync, useListas } from './lib/usar'
 
-type Separador = 'lista' | 'catalogo' | 'seccoes' | 'conta'
+type Separador = 'lista' | 'catalogo' | 'compras' | 'definicoes'
 
 // Preferências deste aparelho (não são sincronizadas).
 function lerLocal(chave: string): string | null {
@@ -67,19 +67,19 @@ export function App() {
       {separador === 'catalogo' && (
         <EcraCatalogo listas={listas} listaId={listaId} aoEscolherLista={escolherLista} aoPorNaLista={porNaLista} />
       )}
-      {separador === 'seccoes' && <EcraSeccoes />}
-      {separador === 'conta' && <EcraConta />}
+      {separador === 'compras' && <EcraCompras listas={listas} />}
+      {separador === 'definicoes' && <EcraDefinicoes />}
 
       <nav className="separadores">
         <div className="separadores-dentro">
           <BotaoSeparador ativo={separador === 'lista'} aoTocar={() => setSeparador('lista')} icone={<IconeLista />} rotulo="Lista" />
           <BotaoSeparador ativo={separador === 'catalogo'} aoTocar={() => setSeparador('catalogo')} icone={<IconeCatalogo />} rotulo="Catálogo" />
-          <BotaoSeparador ativo={separador === 'seccoes'} aoTocar={() => setSeparador('seccoes')} icone={<IconeSeccoes />} rotulo="Secções" />
+          <BotaoSeparador ativo={separador === 'compras'} aoTocar={() => setSeparador('compras')} icone={<IconeCompras />} rotulo="Compras" />
           <BotaoSeparador
-            ativo={separador === 'conta'}
-            aoTocar={() => setSeparador('conta')}
-            icone={<IconeConta />}
-            rotulo="Sincronizar"
+            ativo={separador === 'definicoes'}
+            aoTocar={() => setSeparador('definicoes')}
+            icone={<IconeDefinicoes />}
+            rotulo="Definições"
             aviso={estado.tipo === 'sem-sessao' || estado.tipo === 'erro'}
           />
         </div>

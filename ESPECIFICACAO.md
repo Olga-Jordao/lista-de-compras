@@ -1,7 +1,7 @@
 # Lista de Compras — Especificação
 
-Versão 2 · 09/10/2026 · revista a partir do primeiro pedido, com as decisões
-tomadas na conversa com o Claude Code.
+Versão 3 · 10/10/2026 · revista depois da primeira compra a sério (talho e
+padaria), com as decisões tomadas na conversa com o Claude Code.
 
 ## Objetivo
 
@@ -28,8 +28,12 @@ comparar produtos de verdade.
 - **Fase A:** catálogo, secções, listas, artigos com quantidade e preço, preço ao
   quilo/litro, totais no topo, fechar compra. **Para aqui e avisa-me.** Vou usar
   isto numa compra a sério antes de continuarmos.
+- **Fase A, segunda volta (10/10/2026)**, depois da primeira compra: aparência com
+  as cores da marca, separador Compras com o histórico, lista que esvazia ao fechar
+  com "Repetir a lista", e o orçamento do mês. Estas duas últimas vinham da fase B
+  e passaram para a A.
 - **Fase B**, só depois de eu dizer que correu bem: lojas por secção, resumo de fim
-  de compra, histórico, evolução de preços, comparador e orçamento do mês.
+  de compra por secção e por loja, evolução de preços e comparador.
 - **Fase C**, só para ter em conta na estrutura: planeador de refeições.
 
 ---
@@ -74,9 +78,18 @@ mesma forma.
 
 ### Listas
 
-Tenho listas permanentes que reutilizo, não listas que se apagam. Começo com duas:
-**Mensal** (a compra grande, muitas vezes entregue em casa) e **Semanal de
-frescos**. Posso criar outras, mudar-lhes o nome e apagá-las.
+Começo com duas listas: **Compras do mês** (a compra grande, muitas vezes entregue
+em casa, mais o que falta a meio do mês) e **Frescos da semana** (talho, peixe,
+fruta, pão, comprados em várias idas). Posso criar outras, mudar-lhes o nome e
+apagá-las. As duas funcionam da mesma maneira; o nome é só para eu me organizar.
+
+As listas não guardam o que já comprei: **ao fechar uma compra, o que estava no
+carrinho sai da lista** e fica guardado em Compras. Para voltar a comprar, a lista
+vazia mostra **"Iniciar nova lista"** com o botão **"Repetir a lista de 10/10"**, que
+junta tudo o que comprei nessa lista nas últimas idas (31 dias na Compras do mês,
+14 nos Frescos da semana), sem repetidos e com a última quantidade. Escolho todos ou
+só alguns, acerto as quantidades e ponho na lista. Também posso repetir a partir de
+qualquer compra antiga, no separador Compras.
 
 ### Cada artigo da lista
 
@@ -93,8 +106,11 @@ frescos**. Posso criar outras, mudar-lhes o nome e apagá-las.
   peso × preço/kg não dá o total, a aplicação avisa (engano meu ou da balança);
 - **estimativa em casa**: com o preço ao quilo e o peso médio de cada unidade da
   última compra, "6 espetadas" já mostra ≈ 1,73 kg e ≈ 19 €, e "1 kg" ≈ 10,99 €;
-- **fixo ou só desta vez**: os fixos ficam sempre na lista, os "só desta vez" saem
-  quando fecho a compra;
+- no painel do artigo, em destaque: **Quantidade pedida** e, numa caixa "Na
+  compra", **Peso** e **Total pago**; o preço/kg e o preço por unidade ficam por
+  baixo, mais pequenos (servem para o preço da prateleira no supermercado);
+- na lista, cada artigo mostra a quantidade, o peso, o preço por unidade e o preço
+  ao quilo sempre que se saibam;
 - **origem**: escrito à mão ou vindo de uma refeição. Por agora é sempre à mão, mas
   o campo existe desde já para a fase C.
 
@@ -115,7 +131,10 @@ No telemóvel, toco nos artigos à medida que os meto no carrinho (o físico ou 
 loja online) e ficam riscados. No topo, sempre à vista:
 
 - **o total do que já está no carrinho**, em destaque;
-- o total da lista toda, em pequeno, por baixo.
+- por baixo, em pequeno, "9 de 19 artigos · lista toda ≈ 85,53 €".
+
+Um filtro **Tudo · Falta · No carrinho** deixa ver só o que falta ou só o que já
+está no carrinho.
 
 ### Fechar a compra
 
@@ -125,11 +144,42 @@ diferença fica registada como poupança (pontos, cupão, promoção), com o mot
 quiser indicar. A compra fica guardada com a data, os artigos comprados, os preços e
 o valor pago. Depois disso:
 
-- os artigos fixos desmarcam-se e ficam prontos para a vez seguinte, com o preço
-  que paguei como sugestão;
-- os artigos "só desta vez" que comprei saem da lista;
-- os artigos que **não comprei** ficam na lista, assinalados como "ficou por
-  comprar", para não me esquecer deles na próxima.
+- o que estava no carrinho **sai da lista** (fica guardado na compra);
+- o que **não comprei fica na lista, sem etiqueta**, porque posso ir a outra loja
+  amanhã. Só ganha a etiqueta **"Não comprado desde 10/10"** quando passar uma
+  semana ou quando eu fechar outra compra sem o comprar.
+
+### Compras (histórico)
+
+Um separador **Compras** mostra as compras fechadas, da mais recente para a mais
+antiga, com a data, a lista, o total pago e o número de artigos. Ao tocar, abre o
+detalhe por secção, com **"Repetir esta lista"** e **"Apagar"** (para uma compra
+registada por engano, que deixa de contar para o orçamento). No topo, o resumo do
+mês: orçamento, gasto, poupado em descontos e quanto falta.
+
+### Orçamento do mês
+
+Um só orçamento para tudo o que é compras da casa (alimentação, higiene, limpeza,
+animais), com nome (por omissão "Alimentação e casa"), valor e **dia em que o mês
+começa**: o meu começa a 8, por isso outubro vai de 8 de outubro a 7 de novembro.
+Conta tudo o que fecho, em todas as listas, pelo valor pago na caixa.
+
+- Enquanto não está definido, o topo da lista mostra o convite **"Define o teu
+  orçamento mensal para as compras da casa e alimentação"**, com **Definir** (abre o
+  painel ali mesmo) e **Agora não** (esconde; fica nas Definições).
+- Depois de definido, o topo da lista mostra sempre quanto falta, uma barra (o
+  gasto e, a laranja, o carrinho) e "Depois deste carrinho ficam X €" (ou, em casa,
+  "Com esta lista ficam ≈ X €"). Se passar, diz "Passaste X €".
+
+### Aparência e navegação
+
+- Cores da marca: azul #072a5e, laranja acinzentado #B67623, amarelo claro #fffefa.
+  **Fundo escuro por omissão**, com um botão de **sol e lua** no topo de cada ecrã
+  para passar a claro e voltar; em Definições também há "Automático" (segue o
+  telemóvel). A escolha fica em cada aparelho.
+- O topo da lista tem o nome **"Lista de Compras"**.
+- A barra de baixo tem **Lista, Catálogo, Compras e Definições**. As Definições
+  juntam a aparência, o orçamento, a ordem das secções e a sincronização.
 
 ---
 
@@ -165,14 +215,11 @@ Na prateleira, escrevo o preço e o conteúdo de duas ou três embalagens (por
 exemplo 75 ml a 4,00 € e 100 ml a 4,90 €) e a aplicação diz-me qual sai mais
 barata ao quilo ou ao litro.
 
-### Vista do mês e orçamento
+### Vista do mês por secção
 
-Uma vista do mês até agora, com os subtotais por secção já somados, para lançar na
-folha de orçamento de uma vez em vez de compra a compra. Escrevo quanto reservei
-para o supermercado no mês (por exemplo 300 €, para tudo: alimentação, higiene,
-limpeza, animais) e a aplicação mostra quanto já gastei e quanto falta. O gasto
-conta pelo valor pago na caixa, e a vista do mês mostra também quanto poupei em
-pontos, cupões e promoções.
+O orçamento e o resumo do mês já existem (fase A). Falta, no separador Compras, a
+vista do mês com os **subtotais por secção já somados**, para lançar na folha de
+orçamento de uma vez em vez de compra a compra.
 
 ---
 

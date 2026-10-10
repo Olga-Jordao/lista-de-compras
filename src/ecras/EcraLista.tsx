@@ -6,7 +6,11 @@ import { useAviso } from '../componentes/AvisoRapido'
 import { FolhaArtigo } from '../componentes/FolhaArtigo'
 import { FolhaFechar } from '../componentes/FolhaFechar'
 import { FolhaProduto } from '../componentes/FolhaProduto'
-import { IconePega, IconeVisto } from '../componentes/Icones'
+import { BotaoTema } from '../componentes/BotaoTema'
+import { Segmentos } from '../componentes/Folha'
+import { FolhaRepetir } from '../componentes/FolhaRepetir'
+import { IconePega, IconeRepetir, IconeVisto } from '../componentes/Icones'
+import { CaixaOrcamento } from '../componentes/Orcamento'
 import {
   acrescentarArtigo,
   alternarCarrinho,
@@ -18,14 +22,18 @@ import {
   totalArtigo,
 } from '../lib/acoes'
 import { arredondar, euros, numero } from '../lib/numeros'
+import { artigosParaRepetir, mostrarNaoComprado, ultimaCompraDaLista } from '../lib/repetir'
 import type { Artigo, Lista, Produto, Seccao } from '../lib/tipos'
-import { normalizar, useArtigos, useProdutos, useSeccoes } from '../lib/usar'
+import { normalizar, useArtigos, useCompras, useProdutos, useSeccoes } from '../lib/usar'
 
 type FolhaAberta =
   | { tipo: 'artigo'; artigoId: string; foco: 'quantidade' | 'preco' }
   | { tipo: 'produto-novo'; nome: string }
   | { tipo: 'editar-produto'; produtoId: string }
   | { tipo: 'fechar' }
+  | { tipo: 'repetir' }
+
+const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })
 
 export function EcraLista({
   listas,
@@ -53,28 +61,33 @@ export function EcraLista({
     aoAbrirArtigo()
   }, [artigoAAbrir, aoAbrirArtigo])
   const [ordenar, setOrdenar] = useState(false)
-  const [esconderRiscados, setEsconderRiscados] = useState(false)
+  const [filtro, setFiltro] = useState<'tudo' | 'falta' | 'carrinho'>('tudo')
+  const compras = useCompras()
 
   const lista = listas.find((l) => l.id === listaId) ?? null
   const mapaProdutos = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos])
+  const ultimaCompra = lista ? ultimaCompraDaLista(compras, lista.id) : null
+  // Artigos postos depois da última compra (os que ficaram por comprar não contam).
+  const novos = artigos.filter((a) => !a.naoCompradoDesde)
 
   const contas = useMemo(() => {
     let carrinho = 0
     let todos = 0
     let noCarrinho = 0
     let semPreco = 0
+    let estimado = false
     for (const a of artigos) {
       const p = mapaProdutos.get(a.produtoId)
-      const t = totalArtigo(a, p)
-      todos += t
+      const c = contasArtigo(a, p)
+      todos += c.total
+      if (c.sugerido) estimado = true
       if (a.noCarrinho) {
-        carrinho += t
+        carrinho += c.total
         noCarrinho++
-        const c = contasArtigo(a, p)
         if (!c.temPreco || c.sugerido) semPreco++
       }
     }
-    return { carrinho: arredondar(carrinho), todos: arredondar(todos), noCarrinho, semPreco }
+    return { carrinho: arredondar(carrinho), todos: arredondar(todos), noCarrinho, semPreco, estimado }
   }, [artigos, mapaProdutos])
 
   const grupos = useMemo(() => {
@@ -82,7 +95,8 @@ export function EcraLista({
     for (const a of artigos) {
       const p = mapaProdutos.get(a.produtoId)
       if (!p) continue
-      if (esconderRiscados && !ordenar && a.noCarrinho) continue
+      if (!ordenar && filtro === 'falta' && a.noCarrinho) continue
+      if (!ordenar && filtro === 'carrinho' && !a.noCarrinho) continue
       porSeccao.set(p.seccaoId, [...(porSeccao.get(p.seccaoId) ?? []), a])
     }
     const conhecidas = seccoes.filter((s) => porSeccao.has(s.id)).map((s) => ({ seccao: s, artigos: porSeccao.get(s.id)! }))
@@ -92,7 +106,7 @@ export function EcraLista({
       .flatMap(([, a]) => a)
     if (orfaos.length) conhecidas.push({ seccao: { id: '-', nome: 'Sem secção' } as Seccao, artigos: orfaos })
     return conhecidas
-  }, [artigos, mapaProdutos, seccoes, esconderRiscados, ordenar])
+  }, [artigos, mapaProdutos, seccoes, filtro, ordenar])
 
   async function novaLista() {
     const nome = prompt('Nome da nova lista')
@@ -132,7 +146,14 @@ export function EcraLista({
 
   return (
     <>
-      <header className="topo">
+      <div className="cabeca-lista">
+        <div className="marca">
+          <span className="marca-icone" aria-hidden="true">
+            <IconeVisto />
+          </span>
+          <span className="marca-nome">Lista de Compras</span>
+          <BotaoTema />
+        </div>
         <div className="fichas">
           {listas.map((l) => (
             <button key={l.id} className={'ficha' + (l.id === listaId ? ' ativa' : '')} onClick={() => aoEscolherLista(l.id)}>
@@ -143,12 +164,17 @@ export function EcraLista({
             + Lista
           </button>
         </div>
+        {!ordenar && <CaixaOrcamento carrinho={contas.carrinho} lista={contas.todos} />}
+      </div>
+      <header className="topo">
         <div className="totais">
           <div className="total-carrinho">
             <div className="rotulo">No carrinho</div>
             <div className="valor">{euros(contas.carrinho)}</div>
             <div className="total-lista">
-              Lista toda: {euros(contas.todos)} · {contas.noCarrinho} de {artigos.length}
+              {contas.noCarrinho} de {artigos.length} {artigos.length === 1 ? 'artigo' : 'artigos'} · lista toda{' '}
+              {contas.estimado ? '≈ ' : ''}
+              {euros(contas.todos)}
             </div>
           </div>
           <div className="acoes-topo">
@@ -173,16 +199,34 @@ export function EcraLista({
           />
         )}
 
-        {contas.noCarrinho > 0 && !ordenar && (
-          <button className="botao pequeno" onClick={() => setEsconderRiscados(!esconderRiscados)}>
-            {esconderRiscados ? 'Mostrar o que já está no carrinho' : 'Esconder o que já está no carrinho'}
-          </button>
+        {artigos.length > 0 && !ordenar && (
+          <div className="filtro">
+            <Segmentos
+              opcoes={[
+                { valor: 'tudo', rotulo: `Tudo ${artigos.length}` },
+                { valor: 'falta', rotulo: `Falta ${artigos.length - contas.noCarrinho}` },
+                { valor: 'carrinho', rotulo: `No carrinho ${contas.noCarrinho}` },
+              ]}
+              valor={filtro}
+              aoMudar={setFiltro}
+            />
+          </div>
         )}
 
-        {artigos.length === 0 && (
-          <p className="vazio-lista">
-            A lista está vazia. Escreve um produto em cima para o acrescentar.
-          </p>
+        {lista && !ordenar && novos.length === 0 && ultimaCompra && (
+          <div className="inicio-lista">
+            <div style={{ fontWeight: 700 }}>Iniciar nova lista</div>
+            <p className="nota" style={{ margin: '4px 0 12px' }}>
+              Escreve produtos em cima ou repete a última.
+            </p>
+            <button className="botao principal largo" onClick={() => setFolha({ tipo: 'repetir' })}>
+              <IconeRepetir /> Repetir a lista de {dataCurta(ultimaCompra.data)}
+            </button>
+          </div>
+        )}
+
+        {artigos.length === 0 && !ultimaCompra && (
+          <p className="vazio-lista">A lista está vazia. Escreve um produto em cima para o acrescentar.</p>
         )}
 
         {grupos.map(({ seccao, artigos: daSeccao }) => (
@@ -260,6 +304,18 @@ export function EcraLista({
           totalCarrinho={contas.carrinho}
           ficam={artigos.filter((a) => !a.noCarrinho).length}
           semPreco={contas.semPreco}
+          aoFechar={() => setFolha(null)}
+        />
+      )}
+
+      {folha?.tipo === 'repetir' && lista && (
+        <FolhaRepetir
+          titulo="Repetir a lista"
+          subtitulo={`O que compraste em «${lista.nome}» nas últimas idas, sem repetidos.`}
+          listaId={lista.id}
+          listaNome={lista.nome}
+          itens={artigosParaRepetir(compras, lista.id, lista.periodoRepetirDias ?? 31)}
+          jaNaLista={new Set(artigos.map((a) => a.produtoId))}
           aoFechar={() => setFolha(null)}
         />
       )}
@@ -403,11 +459,12 @@ function LinhaArtigo({
   // Peso real da balança, quando é diferente do pedido (6 un → 1,73 kg; 2 kg → 2,05 kg).
   const pesoReal = artigo.pesoTotal && peso ? `${numero(arredondar(peso.valor, 3))} ${peso.unidade}` : null
 
+  const naoComprado = mostrarNaoComprado(artigo)
   const detalhe = [
     `${numero(artigo.quantidade)} ${artigo.unidade}`,
     pesoReal,
-    unitario != null && !aoPeso && !sugerido ? `${euros(unitario)}/${artigo.unidade}` : null,
-    aoQuilo && !sugerido ? `${euros(aoQuilo.valor)}/${aoQuilo.unidade}` : null,
+    unitario != null && !aoPeso ? `${euros(unitario)}/${artigo.unidade}` : null,
+    aoQuilo ? `${euros(aoQuilo.valor)}/${aoQuilo.unidade}` : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -434,7 +491,7 @@ function LinhaArtigo({
       <button className="artigo-corpo" onClick={() => !ordenar && aoAbrir('quantidade')}>
         <div className="artigo-nome">{produto.nome}</div>
         <div className="artigo-detalhe">{detalhe}</div>
-        {(artigo.porComprar || !artigo.fixo || subida || artigo.origem === 'refeicao') && (
+        {(naoComprado || subida || artigo.origem === 'refeicao') && (
           <div className="etiquetas">
             {subida && (
               <span className="etiqueta aviso">
@@ -442,8 +499,11 @@ function LinhaArtigo({
                 {subida.base !== 'unidade' ? `/${subida.base}` : ''} (+{subida.percentagem} %)
               </span>
             )}
-            {artigo.porComprar && <span className="etiqueta pendente">ficou da última vez</span>}
-            {!artigo.fixo && <span className="etiqueta">só desta vez</span>}
+            {naoComprado && (
+              <span className="etiqueta pendente">
+                Não comprado desde {dataCurta(artigo.naoCompradoDesde!)}
+              </span>
+            )}
             {artigo.origem === 'refeicao' && <span className="etiqueta">refeição</span>}
           </div>
         )}

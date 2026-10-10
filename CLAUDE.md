@@ -3,7 +3,7 @@
 > Este ficheiro é lido no início de cada sessão de trabalho com IA neste projeto.
 > É a memória do projeto: se uma decisão muda, muda-se aqui primeiro.
 
-Última atualização: 09/10/2026
+Última atualização: 10/10/2026
 
 ## O que é
 
@@ -50,9 +50,16 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
   ("Allow new users to sign up"), depois de criada a conta da Olga. Só ela entra.
   Se um dia for preciso outra conta, volta-se a ligar temporariamente.
 - Orçamento mensal **único para todo o supermercado** (alimentação, higiene,
-  limpeza, animais), não só alimentação.
-- Ao fechar uma compra, os artigos **não comprados ficam** na lista assinalados, e
-  os artigos **"só desta vez"** saem.
+  limpeza, animais), não só alimentação. O mês da Olga começa no **dia 8** (8 a 7).
+- (10/10/2026) **Ao fechar uma compra, o que se comprou sai da lista**; o que não
+  se comprou fica sem etiqueta e só ganha "Não comprado" ao fim de uma semana ou de
+  outro fecho. Para voltar a comprar: "Repetir a lista" (junta as últimas idas).
+  Deixou de haver "fixo / só desta vez".
+- (10/10/2026) **Aparência:** cores da marca da Olga (azul #072a5e, laranja
+  #B67623, amarelo claro #fffefa), escuro por omissão, sol/lua para mudar.
+- (10/10/2026) A Olga pensa em transformar isto num produto ou lead magnet: os
+  textos têm de se perceber sem explicações, e cada mudança de ecrã discute-se
+  primeiro com uma maqueta, antes de mexer no código.
 - **Preço ao quilo / ao litro** calculado sempre que se sabe o conteúdo da embalagem.
 - No planeador de refeições (futuro), quantidades repetidas **somam-se**.
 

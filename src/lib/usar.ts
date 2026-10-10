@@ -2,7 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useSyncExternalStore } from 'react'
 import { db } from './db'
 import { estadoSync, ouvirSync } from './sync'
-import type { Artigo, Lista, Produto, Seccao } from './tipos'
+import { ID_ORCAMENTO } from './acoes'
+import type { Artigo, Compra, Lista, Orcamento, Produto, Seccao } from './tipos'
 
 // Leituras que se atualizam sozinhas quando os dados mudam (aqui ou vindos do
 // outro aparelho).
@@ -40,6 +41,23 @@ export function useArtigos(listaId: string | null): Artigo[] {
 
 export function useNumeroCompras(): number {
   return useLiveQuery(async () => (await db.compras.toArray()).filter((c) => !c.apagado).length, [], 0)
+}
+
+/** Compras fechadas, da mais recente para a mais antiga. */
+export function useCompras(): Compra[] {
+  return useLiveQuery(
+    async () => (await db.compras.toArray()).filter((c) => !c.apagado).sort((a, b) => b.data.localeCompare(a.data)),
+    [],
+    [],
+  )
+}
+
+/** O orçamento do mês, ou null se nunca foi definido. `undefined` enquanto carrega. */
+export function useOrcamento(): Orcamento | null | undefined {
+  return useLiveQuery(async () => {
+    const o = await db.definicoes.get(ID_ORCAMENTO)
+    return o && !o.apagado ? o : null
+  }, [])
 }
 
 export function useEstadoSync() {

@@ -21,8 +21,8 @@ export const SECCOES_INICIAIS = [
 ]
 
 const LISTAS_INICIAIS = [
-  { id: 'lista-mensal', nome: 'Mensal' },
-  { id: 'lista-semanal', nome: 'Semanal de frescos' },
+  { id: 'lista-mensal', nome: 'Compras do mês', periodoRepetirDias: 31 },
+  { id: 'lista-semanal', nome: 'Frescos da semana', periodoRepetirDias: 14 },
 ]
 
 export function idSeccaoInicial(nome: string): string {

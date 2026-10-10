@@ -1,10 +1,10 @@
-// Gera os ícones PNG da aplicação (fundo verde com um visto branco), sem
+// Gera os ícones PNG da aplicação (fundo azul com um visto amarelo claro), sem
 // depender de programas de imagem. Correr com: npm run icones
 import { writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
-const VERDE = [0x2f, 0x6b, 0x4f]
-const BRANCO = [0xff, 0xff, 0xff]
+const AZUL = [0x07, 0x2a, 0x5e]
+const AMARELO = [0xff, 0xfe, 0xfa]
 
 function distanciaSegmento(px, py, ax, ay, bx, by) {
   const dx = bx - ax
@@ -36,7 +36,7 @@ function desenhar(tamanho, cantoArredondado) {
       }
       const d = Math.min(distanciaSegmento(cx, cy, ...p1, ...p2), distanciaSegmento(cx, cy, ...p2, ...p3))
       const cobertura = Math.max(0, Math.min(1, traco - d + 0.5))
-      const cor = VERDE.map((v, i) => Math.round(v + (BRANCO[i] - v) * cobertura))
+      const cor = AZUL.map((v, i) => Math.round(v + (AMARELO[i] - v) * cobertura))
       linha.set([...cor, dentro ? 255 : 0], 1 + x * 4)
     }
     linhas.push(linha)

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Artigo, Compra, Lista, NomeTabela, Produto, Seccao } from './tipos'
+import type { Artigo, Compra, Lista, NomeTabela, Orcamento, Produto, Seccao } from './tipos'
 
 // Base de dados no próprio aparelho (IndexedDB). É aqui que a aplicação lê e
 // escreve sempre; o Supabase é só a cópia que mantém os aparelhos iguais.
@@ -9,6 +9,7 @@ export class BaseDados extends Dexie {
   listas!: EntityTable<Lista, 'id'>
   artigos!: EntityTable<Artigo, 'id'>
   compras!: EntityTable<Compra, 'id'>
+  definicoes!: EntityTable<Orcamento, 'id'>
   meta!: EntityTable<{ chave: string; valor: unknown }, 'chave'>
 
   constructor(nome = 'lista-de-compras') {
@@ -21,6 +22,7 @@ export class BaseDados extends Dexie {
       compras: 'id, listaId, data, sujo',
       meta: 'chave',
     })
+    this.version(2).stores({ definicoes: 'id, sujo' })
   }
 
   tabela(nome: NomeTabela) {

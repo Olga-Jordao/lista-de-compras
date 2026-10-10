@@ -28,8 +28,8 @@ export default defineConfig({
         scope: '/lista-de-compras/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#f6f5f0',
-        theme_color: '#2f6b4f',
+        background_color: '#06152e',
+        theme_color: '#06152e',
         icons: [
           { src: 'icone-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icone-512.png', sizes: '512x512', type: 'image/png' },

@@ -57,7 +57,6 @@ export function FolhaArtigo({
   const [pesoUn, setPesoUn] = useState<UnidadeConteudo>(
     artigo.pesoTotal?.unidade ?? (artigo.unidade === 'L' ? 'L' : 'kg'),
   )
-  const [fixo, setFixo] = useState(artigo.fixo)
 
   const refQuantidade = useRef<HTMLInputElement>(null)
   const refPrimeiro = useRef<HTMLInputElement>(null)
@@ -102,16 +101,16 @@ export function FolhaArtigo({
     setEscritos((e) => ({ ...e, [c]: texto.trim() !== '' }))
   }
 
-  function campo(c: Campo, rotulo: string, primeiro = false) {
+  function campo(c: Campo, rotulo: string, opcoes: { primeiro?: boolean; grande?: boolean } = {}) {
     return (
       <div>
-        <label className="bloco-rotulo" htmlFor={`campo-${c}`}>
+        <label className={opcoes.grande ? 'rotulo-forte' : 'bloco-rotulo'} htmlFor={`campo-${c}`}>
           {rotulo}
         </label>
         <input
           id={`campo-${c}`}
-          ref={primeiro ? refPrimeiro : undefined}
-          className={'campo numero' + (escritos[c] ? '' : ' calculado')}
+          ref={opcoes.primeiro ? refPrimeiro : undefined}
+          className={'campo numero' + (opcoes.grande ? ' grande' : ' pequeno') + (escritos[c] ? '' : ' calculado')}
           inputMode="decimal"
           placeholder="—"
           value={mostrado[c]}
@@ -125,7 +124,6 @@ export function FolhaArtigo({
   async function guardar(meterNoCarrinho: boolean) {
     const mudancas: Partial<Artigo> = {
       unidade,
-      fixo,
       pesoTotal: rascunho.pesoTotal,
       precoKg: rascunho.precoKg,
       precoUnitario: rascunho.precoUnitario,
@@ -152,7 +150,6 @@ export function FolhaArtigo({
     aoFechar()
   }
 
-  const nomeUnidade = unidade === 'dz' ? 'dúzia' : 'unidade'
   const porCada =
     unidade === 'un' && contas.peso && q > 0 && !aoPeso
       ? `Cada um: ${contas.peso.unidade === 'kg' ? `${Math.round((contas.peso.valor / q) * 1000)} g` : `${Math.round((contas.peso.valor / q) * 1000)} ml`}${contas.temPreco ? ` · ${euros(contas.total / q)}` : ''}`
@@ -161,14 +158,14 @@ export function FolhaArtigo({
   return (
     <Folha titulo={produto.nome} aoFechar={aoFechar}>
       <div className="bloco">
-        <label className="bloco-rotulo" htmlFor="quantidade">
-          Pedi
+        <label className="rotulo-forte" htmlFor="quantidade">
+          Quantidade pedida
         </label>
         <div className="linha-campos">
           <input
             id="quantidade"
             ref={refQuantidade}
-            className="campo numero"
+            className="campo numero grande"
             inputMode="decimal"
             value={quantidade}
             onChange={(e) => setQuantidade(e.target.value)}
@@ -185,19 +182,19 @@ export function FolhaArtigo({
         )}
       </div>
 
-      <div className="bloco">
-        <span className="bloco-rotulo">Na loja: o que diz a etiqueta ou a prateleira</span>
+      <div className="caixa-compra">
+        <div className="caixa-compra-titulo">NA COMPRA</div>
         <div className="grelha-campos">
           {temPeso && (
             <div>
-              <label className="bloco-rotulo" htmlFor="campo-peso">
-                Peso{aoPeso ? ' (balança)' : ''}
+              <label className="rotulo-forte" htmlFor="campo-peso">
+                Peso
               </label>
               <div className="campo-com-unidade">
                 <input
                   id="campo-peso"
-                  ref={aoPeso ? refPrimeiro : undefined}
-                  className={'campo numero' + (escritos.peso ? '' : ' calculado')}
+                  ref={refPrimeiro}
+                  className={'campo numero grande' + (escritos.peso ? '' : ' calculado')}
                   inputMode="decimal"
                   placeholder="—"
                   value={mostrado.peso}
@@ -224,11 +221,12 @@ export function FolhaArtigo({
               </div>
             </div>
           )}
-          {temPeso && campo('precoKg', `Preço/${ref}`)}
-          {temPrecoUn && campo('precoUn', `Preço por ${nomeUnidade}`, !aoPeso)}
-          {campo('total', 'Total')}
+          {campo('total', 'Total pago', { grande: true, primeiro: !temPeso })}
         </div>
-        <p className="nota">Escreve o que tiveres (chegam dois); o resto é calculado.</p>
+        <div className="grelha-campos" style={{ marginTop: 10 }}>
+          {temPeso && campo('precoKg', `Preço/${ref}`)}
+          {temPrecoUn && campo('precoUn', `Preço/${unidade}`)}
+        </div>
       </div>
 
       <div className="caixa-info">
@@ -274,17 +272,6 @@ export function FolhaArtigo({
             : `Ao ${contas.subida.base === 'kg' ? 'quilo' : 'litro'}, subiu ${euros(contas.subida.diferenca)} (+${contas.subida.percentagem} %) desde a última compra`}
         </div>
       )}
-
-      <div className="bloco">
-        <Segmentos
-          opcoes={[
-            { valor: 'fixo', rotulo: 'Fica sempre na lista' },
-            { valor: 'uma', rotulo: 'Só desta vez' },
-          ]}
-          valor={fixo ? 'fixo' : 'uma'}
-          aoMudar={(v) => setFixo(v === 'fixo')}
-        />
-      </div>
 
       <div className="botoes-folha">
         {!artigo.noCarrinho && (
