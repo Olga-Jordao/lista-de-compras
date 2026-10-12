@@ -15,9 +15,21 @@
 - **Próximo, quando a Olga pedir:**
   1. Fase B (`ESPECIFICACAO.md`): lojas por secção, resumo de fim de compra por
      secção e loja, evolução de preços, comparador, vista do mês por secção.
-  2. "Fase das amigas" (partilhar com outras pessoas): religar registos no Supabase,
-     "Esqueci-me da palavra-passe" (precisa de SMTP próprio, ex. Resend), apagar os
-     dados do aparelho ao terminar sessão, linha sobre privacidade. Custo 0 €.
+  2. **"Fase das amigas" — proposta feita a 12/10/2026, à espera da decisão da Olga**
+     (ela quer dar o link a 2 ou 3 amigas para testarem e darem opinião). Custo 0 €.
+     - Abrir "criar conta" no Supabase durante o teste e fechar no fim (com o sim dela).
+     - Ecrã de boas-vindas na primeira vez: para que serve, **Criar conta / Entrar /
+       Experimentar sem conta**, e uma linha honesta sobre os dados (servidor na UE,
+       não partilhados; não dizer "ninguém vê", porque a Olga, como dona do Supabase,
+       tem acesso técnico). **Mostrar maqueta antes de construir.**
+     - Mesmo aparelho, outra pessoa: ao entrar com outra conta (ou ao terminar sessão),
+       apagar do aparelho os dados da sessão anterior antes de sincronizar.
+     - Botão "Dar opinião" em Definições (WhatsApp ou email para a Olga, com mensagem
+       começada).
+     - **Decisões pendentes da Olga:** (a) "Esqueci-me da palavra-passe": à mão para já
+       (recomendado; repõe-se a conta da amiga) ou automático com Resend + DNS no
+       Cloudflare (~20 min de passos dela); (b) quanto tempo fica aberta a criação de
+       contas (sugestão: duas semanas).
   3. Produto ou lead magnet: Supabase Pro, alojamento que aceite uso comercial,
      RGPD. Só depois de testar com amigas.
 - **Pendentes da Olga** (não de código): estão na memória local deste projeto.
