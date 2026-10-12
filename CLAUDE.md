@@ -3,7 +3,25 @@
 > Este ficheiro é lido no início de cada sessão de trabalho com IA neste projeto.
 > É a memória do projeto: se uma decisão muda, muda-se aqui primeiro.
 
-Última atualização: 10/10/2026
+Última atualização: 12/10/2026
+
+## Onde estamos (12/10/2026)
+
+- **Fase A feita e em uso diário** pela Olga, no iPhone e no computador, em
+  https://listadecompras.olgajordao.pt. Inclui, além do pedido original: listas que
+  esvaziam ao fechar com "Repetir a lista", separador Compras com histórico e
+  correção de compras fechadas, orçamento do mês (8 a 7), promoções, grátis com
+  pontos, peso "de tudo / de cada", cores da marca com sol/lua.
+- **Próximo, quando a Olga pedir:**
+  1. Fase B (`ESPECIFICACAO.md`): lojas por secção, resumo de fim de compra por
+     secção e loja, evolução de preços, comparador, vista do mês por secção.
+  2. "Fase das amigas" (partilhar com outras pessoas): religar registos no Supabase,
+     "Esqueci-me da palavra-passe" (precisa de SMTP próprio, ex. Resend), apagar os
+     dados do aparelho ao terminar sessão, linha sobre privacidade. Custo 0 €.
+  3. Produto ou lead magnet: Supabase Pro, alojamento que aceite uso comercial,
+     RGPD. Só depois de testar com amigas.
+- **Pendentes da Olga** (não de código): estão na memória local deste projeto.
+- Antes de mudar ecrãs ou regras, **mostrar uma maqueta e esperar o sim da Olga**.
 
 ## O que é
 
@@ -27,6 +45,13 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
 5. **Nada de partilha, código de barras ou ligação a sites de supermercados.**
 6. Ao explicar o trabalho à Olga, explicar também o método (ela está a aprender a
    trabalhar com IA) e escrever com frases ligadas, sem séries de frases curtas.
+7. Quando é ela a fazer um passo (Supabase, GitHub, Cloudflare, telemóvel), dar
+   passos numerados, com os nomes exatos dos botões e links diretos. Ela usa o
+   **Chrome** no Windows e no iPhone.
+8. **Nunca pedir nem repetir palavras-passe.** Ações na conta dela (definições do
+   Supabase, apagar coisas) só com um "sim" explícito.
+9. Testar com os casos reais dela (café, pão, espetadas…) e confirmar no ecrã de
+   telemóvel antes de publicar; os dados reais só se mexem quando ela pede.
 
 ## Como está feita
 
@@ -71,6 +96,7 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
   base de dados está em `supabase/migrations/`. Nunca pôr dados reais neste
   repositório, que é público.
 - **Publicação:** repositório público no GitHub (conta Olga-Jordao) com GitHub
-  Pages. Pode passar mais tarde para o Vercel com repositório privado.
+  Pages e domínio próprio (12/10/2026). O domínio próprio não exige o Lovable nem o
+  Vercel; outras aplicações podem ter subdomínios de olgajordao.pt da mesma forma.
 - **Construção:** no Claude Code, nesta pasta. Não usar o Lovable em paralelo no
   mesmo código.
