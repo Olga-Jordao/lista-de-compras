@@ -3,9 +3,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// O endereço no GitHub Pages é /lista-de-compras/.
+// Publicada em https://listadecompras.olgajordao.pt (domínio próprio, na raiz).
 export default defineConfig({
-  base: '/lista-de-compras/',
+  base: '/',
   // A biblioteca do Supabase é grande; como fica guardada no telemóvel, não faz mal.
   build: { chunkSizeWarningLimit: 1000 },
   // Versão = data e hora da publicação, para se ver no ecrã Sincronizar qual está instalada.
@@ -24,8 +24,8 @@ export default defineConfig({
         short_name: 'Compras',
         description: 'A minha lista de compras',
         lang: 'pt-PT',
-        start_url: '/lista-de-compras/',
-        scope: '/lista-de-compras/',
+        start_url: '/',
+        scope: '/',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#06152e',
@@ -38,7 +38,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png}'],
-        navigateFallback: '/lista-de-compras/index.html',
+        navigateFallback: '/index.html',
       },
     }),
   ],

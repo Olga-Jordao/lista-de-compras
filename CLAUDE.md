@@ -38,7 +38,7 @@ O pedido completo, com as fases, está em `ESPECIFICACAO.md`. Ler antes de mexer
   de verdade: marca-se `apagado`.
 - Comandos: `npm run dev` (pré-visualização), `npm test`, `npm run build`.
 - Cada envio para o ramo `main` no GitHub testa, constrói e publica sozinho
-  (`.github/workflows/publicar.yml`) em https://olga-jordao.github.io/lista-de-compras/
+  (`.github/workflows/publicar.yml`) em https://listadecompras.olgajordao.pt (domínio próprio; DNS no Cloudflare: CNAME `listadecompras` → `olga-jordao.github.io`, "DNS only")
 
 ## Decisões tomadas (09/10/2026)
 

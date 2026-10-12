@@ -40,7 +40,7 @@ export function EcraConta() {
     const { data, error } = await supabase.auth.signUp({
       email: emailEscrito.trim(),
       password: palavraPasse,
-      options: { emailRedirectTo: 'https://olga-jordao.github.io/lista-de-compras/' },
+      options: { emailRedirectTo: 'https://listadecompras.olgajordao.pt/' },
     })
     setAEnviar(false)
     if (error) return setErro(traduzir(error.message))
