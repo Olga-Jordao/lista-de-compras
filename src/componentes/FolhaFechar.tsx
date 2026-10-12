@@ -13,6 +13,7 @@ export function FolhaFechar({
   totalCarrinho,
   ficam,
   semPreco,
+  poupadoArtigos,
   aoFechar,
 }: {
   listaId: string
@@ -21,6 +22,8 @@ export function FolhaFechar({
   totalCarrinho: number
   ficam: number
   semPreco: number
+  /** Já poupado nos artigos do carrinho (promoções e grátis). */
+  poupadoArtigos: number
   aoFechar: () => void
 }) {
   const aviso = useAviso()
@@ -55,6 +58,12 @@ export function FolhaFechar({
           <span>Total</span>
           <span>{euros(totalCarrinho)}</span>
         </div>
+        {poupadoArtigos > 0 && (
+          <div className="resumo-linha texto-destaque">
+            <span>Já poupaste (promoções e grátis)</span>
+            <span>{euros(poupadoArtigos)}</span>
+          </div>
+        )}
       </div>
 
       {semPreco > 0 && (
@@ -90,6 +99,7 @@ export function FolhaFechar({
           value={pago}
           onChange={(e) => setPago(e.target.value)}
         />
+        <p className="nota" style={{ marginBottom: 0 }}>Se agora não der, podes escrever depois, em Compras.</p>
         {poupanca > 0 && (
           <>
             <p className="caixa-info" style={{ marginTop: 8, fontWeight: 600 }}>

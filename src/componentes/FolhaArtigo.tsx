@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { alterarArtigo, apagarArtigo, contasArtigo, type CamposArtigo } from '../lib/acoes'
+import { alterarArtigo, alterarProduto, apagarArtigo, contasArtigo, type CamposArtigo } from '../lib/acoes'
 import { arredondar, euros, lerNumero, numero, paraCampo, paraCampoEuros } from '../lib/numeros'
 import type { Artigo, Produto, Unidade, UnidadeConteudo } from '../lib/tipos'
 import { useAviso } from './AvisoRapido'
@@ -13,6 +13,9 @@ const UNIDADES: { valor: Unidade; rotulo: string }[] = [
 ]
 
 type Campo = 'peso' | 'precoKg' | 'precoUn' | 'total'
+
+// Secções onde o que se pede à unidade se pesa na balança (o peso é "de tudo").
+const SECCOES_AO_PESO = new Set(['seccao-talho', 'seccao-peixaria', 'seccao-fruta-e-legumes', 'seccao-padaria', 'seccao-charcutaria'])
 
 const selecionarTudo = (e: React.FocusEvent<HTMLInputElement>) => e.target.select()
 
@@ -57,6 +60,14 @@ export function FolhaArtigo({
   const [pesoUn, setPesoUn] = useState<UnidadeConteudo>(
     artigo.pesoTotal?.unidade ?? (artigo.unidade === 'L' ? 'L' : 'kg'),
   )
+  // Peso "de cada" (embalagem: fica no produto) ou "de tudo" (balança: só desta compra).
+  const [pesoModo, setPesoModo] = useState<'tudo' | 'cada'>(
+    artigo.pesoTotal || SECCOES_AO_PESO.has(produto.seccaoId) ? 'tudo' : 'cada',
+  )
+  const [cadaTxt, setCadaTxt] = useState(paraCampo(produto.conteudo?.quantidade))
+  const [cadaUn, setCadaUn] = useState<UnidadeConteudo>(produto.conteudo?.unidade ?? 'g')
+  const [gratis, setGratis] = useState(artigo.gratis ?? false)
+  const [normalTxt, setNormalTxt] = useState(paraCampo(artigo.precoNormal))
 
   const refQuantidade = useRef<HTMLInputElement>(null)
   const refPrimeiro = useRef<HTMLInputElement>(null)
@@ -72,7 +83,11 @@ export function FolhaArtigo({
   const ref = emLitros || unidade === 'L' ? 'L' : 'kg'
 
   const valor = (c: Campo) => (escritos[c] ? lerNumero(textos[c]) : null)
-  const pesoNum = temPeso ? valor('peso') : null
+  const deCada = unidade === 'un' && pesoModo === 'cada'
+  const pesoNum = temPeso && !deCada ? valor('peso') : null
+  const cadaNum = lerNumero(cadaTxt)
+  const conteudo = deCada ? (cadaNum ? { quantidade: cadaNum, unidade: cadaUn } : null) : produto.conteudo
+  const precoNormal = gratis ? null : lerNumero(normalTxt)
   const rascunho: CamposArtigo = {
     quantidade: q,
     unidade,
@@ -80,8 +95,10 @@ export function FolhaArtigo({
     precoKg: temPeso ? valor('precoKg') : null,
     precoUnitario: temPrecoUn ? valor('precoUn') : null,
     totalManual: valor('total'),
+    precoNormal,
+    gratis,
   }
-  const contas = contasArtigo(rascunho, produto)
+  const contas = contasArtigo(rascunho, { ...produto, conteudo })
 
   // O que aparece em cada campo: o que se escreveu, ou o valor calculado (a cinzento).
   const pesoCalculado = contas.peso
@@ -93,7 +110,7 @@ export function FolhaArtigo({
     peso: escritos.peso ? textos.peso : pesoCalculado,
     precoKg: escritos.precoKg ? textos.precoKg : contas.aoQuilo ? paraCampoEuros(contas.aoQuilo.valor) : '',
     precoUn: escritos.precoUn ? textos.precoUn : contas.unitario != null ? paraCampoEuros(contas.unitario) : '',
-    total: escritos.total ? textos.total : contas.temPreco ? paraCampoEuros(contas.total) : '',
+    total: escritos.total ? textos.total : contas.temPreco ? paraCampoEuros(contas.valorPrateleira) : '',
   }
 
   function escrever(c: Campo, texto: string) {
@@ -128,6 +145,12 @@ export function FolhaArtigo({
       precoKg: rascunho.precoKg,
       precoUnitario: rascunho.precoUnitario,
       totalManual: rascunho.totalManual,
+      precoNormal,
+      gratis,
+    }
+    // Peso de cada embalagem: fica guardado no produto.
+    if (deCada && (conteudo?.quantidade !== produto.conteudo?.quantidade || conteudo?.unidade !== produto.conteudo?.unidade)) {
+      await alterarProduto(produto.id, { conteudo })
     }
     if (q > 0) mudancas.quantidade = q
     // Produto de preço fixo por unidade, sem nada escrito: aceita o último preço.
@@ -152,7 +175,7 @@ export function FolhaArtigo({
 
   const porCada =
     unidade === 'un' && contas.peso && q > 0 && !aoPeso
-      ? `Cada um: ${contas.peso.unidade === 'kg' ? `${Math.round((contas.peso.valor / q) * 1000)} g` : `${Math.round((contas.peso.valor / q) * 1000)} ml`}${contas.temPreco ? ` · ${euros(contas.total / q)}` : ''}`
+      ? `Cada um: ${contas.peso.unidade === 'kg' ? `${Math.round((contas.peso.valor / q) * 1000)} g` : `${Math.round((contas.peso.valor / q) * 1000)} ml`}${contas.temPreco ? ` · ${euros(contas.valorPrateleira / q)}` : ''}`
       : null
 
   return (
@@ -184,21 +207,43 @@ export function FolhaArtigo({
 
       <div className="caixa-compra">
         <div className="caixa-compra-titulo">NA COMPRA</div>
-        <div className="grelha-campos">
+        <button
+          type="button"
+          className={'botao pequeno chip-gratis' + (gratis ? ' ativo' : '')}
+          aria-pressed={gratis}
+          onClick={() => setGratis(!gratis)}
+        >
+          {gratis ? '✓ ' : ''}Grátis (pontos ou cupão)
+        </button>
+        <div className="grelha-campos" style={{ marginTop: 10 }}>
           {temPeso && (
             <div>
-              <label className="rotulo-forte" htmlFor="campo-peso">
-                Peso
-              </label>
+              <div className="rotulo-com-escolha">
+                <label className="rotulo-forte" htmlFor="campo-peso" style={{ margin: 0 }}>
+                  Peso
+                </label>
+                {unidade === 'un' && (
+                  <div className="segmentos-pequenos">
+                    <Segmentos
+                      opcoes={[
+                        { valor: 'tudo', rotulo: 'de tudo' },
+                        { valor: 'cada', rotulo: 'de cada' },
+                      ]}
+                      valor={pesoModo}
+                      aoMudar={setPesoModo}
+                    />
+                  </div>
+                )}
+              </div>
               <div className="campo-com-unidade">
                 <input
                   id="campo-peso"
                   ref={refPrimeiro}
-                  className={'campo numero grande' + (escritos.peso ? '' : ' calculado')}
+                  className={'campo numero grande' + (deCada || escritos.peso ? '' : ' calculado')}
                   inputMode="decimal"
                   placeholder="—"
-                  value={mostrado.peso}
-                  onChange={(e) => escrever('peso', e.target.value)}
+                  value={deCada ? cadaTxt : mostrado.peso}
+                  onChange={(e) => (deCada ? setCadaTxt(e.target.value) : escrever('peso', e.target.value))}
                   onFocus={selecionarTudo}
                 />
                 <button
@@ -206,26 +251,55 @@ export function FolhaArtigo({
                   className="botao pequeno"
                   aria-label="Mudar a unidade do peso"
                   onClick={() => {
-                    const nova = ({ g: 'kg', kg: 'g', ml: 'L', L: 'ml' } as const)[pesoUn]
                     // Converte o que já está escrito: 625 g passa a 0,625 kg.
-                    const n = lerNumero(textos.peso)
-                    if (escritos.peso && n != null) {
-                      const fator = nova === 'g' || nova === 'ml' ? 1000 : 1 / 1000
-                      setTextos((t) => ({ ...t, peso: paraCampo(arredondar(n * fator, 3)) }))
+                    const trocar = { g: 'kg', kg: 'g', ml: 'L', L: 'ml' } as const
+                    const converter = (texto: string, nova: UnidadeConteudo) => {
+                      const n = lerNumero(texto)
+                      if (n == null) return texto
+                      return paraCampo(arredondar(n * (nova === 'g' || nova === 'ml' ? 1000 : 1 / 1000), 3))
                     }
-                    setPesoUn(nova)
+                    if (deCada) {
+                      const nova = trocar[cadaUn]
+                      setCadaTxt((t) => converter(t, nova))
+                      setCadaUn(nova)
+                    } else {
+                      const nova = trocar[pesoUn]
+                      if (escritos.peso) setTextos((t) => ({ ...t, peso: converter(t.peso, nova) }))
+                      setPesoUn(nova)
+                    }
                   }}
                 >
-                  {pesoUn}
+                  {deCada ? cadaUn : pesoUn}
                 </button>
               </div>
+              {deCada && cadaNum != null && q > 0 && (
+                <div className="contagem" style={{ fontSize: 12, marginTop: 4 }}>
+                  {numero(q)} × {numero(cadaNum)} {cadaUn} = {numero(arredondar(q * cadaNum, 3))} {cadaUn}
+                </div>
+              )}
             </div>
           )}
-          {campo('total', 'Total pago', { grande: true, primeiro: !temPeso })}
+          {campo('total', gratis ? 'Valor na prateleira' : 'Total pago', { grande: true, primeiro: !temPeso })}
         </div>
         <div className="grelha-campos" style={{ marginTop: 10 }}>
           {temPeso && campo('precoKg', `Preço/${ref}`)}
           {temPrecoUn && campo('precoUn', `Preço/${unidade}`)}
+          {!gratis && (
+            <div>
+              <label className="bloco-rotulo" htmlFor="campo-normal">
+                Preço normal/{unidade} (sem promoção)
+              </label>
+              <input
+                id="campo-normal"
+                className="campo numero pequeno"
+                inputMode="decimal"
+                placeholder="—"
+                value={normalTxt}
+                onChange={(e) => setNormalTxt(e.target.value)}
+                onFocus={selecionarTudo}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -240,6 +314,12 @@ export function FolhaArtigo({
             <span>
               {euros(contas.aoQuilo.valor)}/{contas.aoQuilo.unidade}
             </span>
+          </div>
+        )}
+        {contas.poupanca > 0 && (
+          <div className="resumo-linha texto-destaque" style={{ fontSize: 15 }}>
+            <span>{contas.tipoPoupanca === 'gratis' ? 'Poupaste com pontos ou cupão' : 'Poupaste na promoção'}</span>
+            <span>{euros(contas.poupanca)}</span>
           </div>
         )}
         {porCada && (

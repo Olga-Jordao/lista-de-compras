@@ -1,6 +1,20 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { acrescentarArtigo, alterarArtigo, alternarCarrinho, contasArtigo, criarProduto, fecharCompra, totalArtigo } from './acoes'
+import {
+  acrescentarArtigo,
+  acrescentarLinhaCompra,
+  alterarArtigo,
+  alterarLinhaCompra,
+  alterarPagoNaCaixa,
+  alterarProduto,
+  alternarCarrinho,
+  contasArtigo,
+  criarProduto,
+  fecharCompra,
+  tirarLinhaCompra,
+  totalArtigo,
+} from './acoes'
+import { periodoAtual, resumoPeriodo } from './orcamento'
 import { db } from './db'
 import { idSeccaoInicial, prepararDadosIniciais } from './inicial'
 import { mostrarNaoComprado } from './repetir'
@@ -171,6 +185,80 @@ describe('pedir à unidade ou ao peso, pagar ao quilo', () => {
     )
     expect(c.total).toBe(22.5)
     expect(c.aoQuilo?.valor).toBeCloseTo(37.5, 2)
+  })
+})
+
+describe('promoções, grátis e corrigir compras fechadas', () => {
+  it('café em promoção: 8 caixas a 2,99 € (normal 3,75 €) poupam 6,08 €; 108 g cada dá 27,69 €/kg', async () => {
+    const cafe = await criarProduto('Café Cápsulas', MERCEARIA, 'un')
+    const produto = { ...cafe, conteudo: { quantidade: 108, unidade: 'g' as const } }
+    const c = contasArtigo(
+      { quantidade: 8, unidade: 'un', precoUnitario: 2.99, totalManual: null, pesoTotal: null, precoKg: null, precoNormal: 3.75 },
+      produto,
+    )
+    expect(c.total).toBe(23.92)
+    expect(c.poupanca).toBe(6.08)
+    expect(c.tipoPoupanca).toBe('promocao')
+    expect(c.aoQuilo?.valor).toBeCloseTo(27.69, 2)
+
+    // Ao fechar, o preço de referência é o normal (as promoções passam).
+    await alterarProduto(cafe.id, { conteudo: produto.conteudo })
+    const a = await acrescentarArtigo('lista-mensal', produto)
+    await alterarArtigo(a.id, { quantidade: 8, precoUnitario: 2.99, precoNormal: 3.75, noCarrinho: true })
+    const compra = await fecharCompra({ listaId: 'lista-mensal', modo: 'loja', totalPago: null, motivoDesconto: null })
+    expect(compra?.linhas[0].poupanca).toBe(6.08)
+    expect((await db.produtos.get(cafe.id))?.ultimoPreco).toBe(3.75)
+  })
+
+  it('flocos grátis com pontos: não contam para o gasto e o valor conta como poupança', () => {
+    const c = contasArtigo(
+      { quantidade: 1, unidade: 'un', precoUnitario: 1.45, totalManual: null, pesoTotal: null, precoKg: null, gratis: true },
+      undefined,
+    )
+    expect(c.total).toBe(0)
+    expect(c.valorPrateleira).toBe(1.45)
+    expect(c.poupanca).toBe(1.45)
+    expect(c.tipoPoupanca).toBe('gratis')
+  })
+
+  it('corrige uma compra fechada: pão a 0,80 €, açúcar tirado, valor da caixa escrito mais tarde', async () => {
+    const padaria = idSeccaoInicial('Padaria')
+    const pao = await criarProduto('Pão', padaria, 'un')
+    const acucar = await criarProduto('Açúcar', MERCEARIA, 'un')
+    const aPao = await acrescentarArtigo('lista-mensal', pao)
+    await alterarArtigo(aPao.id, { quantidade: 2, totalManual: 0.88, pesoTotal: { quantidade: 166, unidade: 'g' }, noCarrinho: true })
+    const aAcucar = await acrescentarArtigo('lista-mensal', acucar)
+    await alterarArtigo(aAcucar.id, { precoUnitario: 2.29, noCarrinho: true })
+    const compra = (await fecharCompra({ listaId: 'lista-mensal', modo: 'loja', totalPago: null, motivoDesconto: null }))!
+    expect(compra.totalCarrinho).toBe(3.17)
+
+    await alterarLinhaCompra(compra.id, pao.id, { quantidade: 2, peso: { valor: 0.1667, unidade: 'kg' }, valor: 0.8, precoNormal: null, gratis: false })
+    await tirarLinhaCompra(compra.id, acucar.id)
+    let depois = (await db.compras.get(compra.id))!
+    expect(depois.linhas).toHaveLength(1)
+    expect(depois.totalCarrinho).toBe(0.8)
+    expect(depois.linhas[0].precoRef).toBeCloseTo(4.8, 1)
+    expect((await db.produtos.get(pao.id))?.ultimoPreco).toBe(0.4)
+
+    await alterarPagoNaCaixa(compra.id, 0.5, 'Cupão')
+    depois = (await db.compras.get(compra.id))!
+    const r = resumoPeriodo([depois], periodoAtual(1, new Date(depois.data)))
+    expect(r.gasto).toBe(0.5)
+    expect(r.caixa).toBe(0.3)
+  })
+
+  it('acrescentar à compra o que se esqueceu de marcar tira-o da lista', async () => {
+    const acucar = await criarProduto('Açúcar', MERCEARIA, 'un')
+    const leite = await criarProduto('Leite', MERCEARIA, 'un')
+    const aLeite = await acrescentarArtigo('lista-mensal', leite)
+    await alterarArtigo(aLeite.id, { precoUnitario: 0.85, noCarrinho: true })
+    const aAcucar = await acrescentarArtigo('lista-mensal', acucar)
+    const compra = (await fecharCompra({ listaId: 'lista-mensal', modo: 'loja', totalPago: null, motivoDesconto: null }))!
+    expect((await db.artigos.get(aAcucar.id))?.apagado).toBe(false)
+
+    await acrescentarLinhaCompra(compra.id, acucar, 'un', { quantidade: 1, peso: null, valor: 2.29, precoNormal: null, gratis: false })
+    expect((await db.compras.get(compra.id))?.totalCarrinho).toBe(3.14)
+    expect((await db.artigos.get(aAcucar.id))?.apagado).toBe(true)
   })
 })
 

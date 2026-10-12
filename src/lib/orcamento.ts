@@ -46,8 +46,14 @@ export interface ResumoPeriodo {
   compras: Compra[]
   /** O que se pagou (valor da caixa quando foi escrito; senão o total do carrinho). */
   gasto: number
-  /** Diferença entre o carrinho e a caixa: pontos, cupões, promoções. */
+  /** Tudo o que se poupou no período (a soma das três partes abaixo). */
   poupado: number
+  /** Preço normal − preço pago, nos artigos em promoção. */
+  promocoes: number
+  /** O valor dos artigos que vieram grátis com pontos ou cupão. */
+  gratis: number
+  /** Diferença entre o carrinho e o que se pagou na caixa (cupões, vales, pontos em euros). */
+  caixa: number
 }
 
 export function resumoPeriodo(compras: Compra[], p: Periodo): ResumoPeriodo {
@@ -57,11 +63,24 @@ export function resumoPeriodo(compras: Compra[], p: Periodo): ResumoPeriodo {
     return d >= p.inicio && d < p.fim
   })
   let gasto = 0
-  let poupado = 0
+  let caixa = 0
+  let promocoes = 0
+  let gratis = 0
   for (const c of doPeriodo) {
     const pago = c.totalPago ?? c.totalCarrinho
     gasto += pago
-    if (c.totalPago != null && c.totalPago < c.totalCarrinho) poupado += c.totalCarrinho - c.totalPago
+    if (c.totalPago != null && c.totalPago < c.totalCarrinho) caixa += c.totalCarrinho - c.totalPago
+    for (const l of c.linhas) {
+      if (l.tipoPoupanca === 'promocao') promocoes += l.poupanca ?? 0
+      if (l.tipoPoupanca === 'gratis') gratis += l.poupanca ?? 0
+    }
   }
-  return { compras: doPeriodo, gasto: arredondar(gasto), poupado: arredondar(poupado) }
+  return {
+    compras: doPeriodo,
+    gasto: arredondar(gasto),
+    poupado: arredondar(caixa + promocoes + gratis),
+    promocoes: arredondar(promocoes),
+    gratis: arredondar(gratis),
+    caixa: arredondar(caixa),
+  }
 }

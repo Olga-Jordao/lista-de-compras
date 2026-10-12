@@ -76,6 +76,7 @@ export function EcraLista({
     let noCarrinho = 0
     let semPreco = 0
     let estimado = false
+    let poupadoCarrinho = 0
     for (const a of artigos) {
       const p = mapaProdutos.get(a.produtoId)
       const c = contasArtigo(a, p)
@@ -84,10 +85,11 @@ export function EcraLista({
       if (a.noCarrinho) {
         carrinho += c.total
         noCarrinho++
+        poupadoCarrinho += c.poupanca
         if (!c.temPreco || c.sugerido) semPreco++
       }
     }
-    return { carrinho: arredondar(carrinho), todos: arredondar(todos), noCarrinho, semPreco, estimado }
+    return { carrinho: arredondar(carrinho), todos: arredondar(todos), noCarrinho, semPreco, estimado, poupadoCarrinho: arredondar(poupadoCarrinho) }
   }, [artigos, mapaProdutos])
 
   const grupos = useMemo(() => {
@@ -304,6 +306,7 @@ export function EcraLista({
           totalCarrinho={contas.carrinho}
           ficam={artigos.filter((a) => !a.noCarrinho).length}
           semPreco={contas.semPreco}
+          poupadoArtigos={contas.poupadoCarrinho}
           aoFechar={() => setFolha(null)}
         />
       )}
@@ -454,7 +457,7 @@ function LinhaArtigo({
   })
   const estilo = { transform: CSS.Transform.toString(transform), transition }
 
-  const { temPreco, sugerido, total, unitario, aoQuilo, subida, peso } = contasArtigo(artigo, produto)
+  const { temPreco, sugerido, total, unitario, aoQuilo, subida, peso, poupanca, tipoPoupanca } = contasArtigo(artigo, produto)
   const aoPeso = artigo.unidade === 'kg' || artigo.unidade === 'L'
   // Peso real da balança, quando é diferente do pedido (6 un → 1,73 kg; 2 kg → 2,05 kg).
   const pesoReal = artigo.pesoTotal && peso ? `${numero(arredondar(peso.valor, 3))} ${peso.unidade}` : null
@@ -491,8 +494,10 @@ function LinhaArtigo({
       <button className="artigo-corpo" onClick={() => !ordenar && aoAbrir('quantidade')}>
         <div className="artigo-nome">{produto.nome}</div>
         <div className="artigo-detalhe">{detalhe}</div>
-        {(naoComprado || subida || artigo.origem === 'refeicao') && (
+        {(naoComprado || subida || poupanca > 0 || artigo.origem === 'refeicao') && (
           <div className="etiquetas">
+            {tipoPoupanca === 'gratis' && <span className="etiqueta aviso">grátis · poupas {euros(poupanca)}</span>}
+            {tipoPoupanca === 'promocao' && <span className="etiqueta aviso">promoção · poupas {euros(poupanca)}</span>}
             {subida && (
               <span className="etiqueta aviso">
                 ↑ {euros(subida.diferenca)}

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { BotaoTema } from '../componentes/BotaoTema'
+import { FolhaCaixa, FolhaLinhaCompra } from '../componentes/FolhasCompra'
 import { FolhaRepetir } from '../componentes/FolhaRepetir'
 import { FolhaOrcamento } from '../componentes/Orcamento'
 import { apagarCompra } from '../lib/acoes'
 import { arredondar, euros, numero } from '../lib/numeros'
 import { periodoAtual, resumoPeriodo, textoPeriodoCurto } from '../lib/orcamento'
-import type { Compra, Lista } from '../lib/tipos'
+import type { Compra, LinhaCompra, Lista } from '../lib/tipos'
 import { useArtigos, useCompras, useOrcamento, useSeccoes } from '../lib/usar'
 
 const dataLonga = (iso: string) =>
@@ -46,10 +47,26 @@ export function EcraCompras({ listas }: { listas: Lista[] }) {
             </span>
             <span>{euros(resumo.gasto)}</span>
           </div>
-          <div className="linha-simples">
-            <span className="contagem">Poupado em descontos</span>
+          <div className="linha-simples" style={{ borderTop: '1px solid var(--linha)', marginTop: 6, paddingTop: 6, fontWeight: 700 }}>
+            <span>Poupaste este mês</span>
             <span className="texto-destaque">{euros(resumo.poupado)}</span>
           </div>
+          {resumo.poupado > 0 && (
+            <>
+              <div className="linha-simples">
+                <span className="contagem">· promoções</span>
+                <span>{euros(resumo.promocoes)}</span>
+              </div>
+              <div className="linha-simples">
+                <span className="contagem">· pontos e cupões (grátis)</span>
+                <span>{euros(resumo.gratis)}</span>
+              </div>
+              <div className="linha-simples">
+                <span className="contagem">· descontos na caixa</span>
+                <span>{euros(resumo.caixa)}</span>
+              </div>
+            </>
+          )}
           {definido ? (
             <div className="linha-simples" style={{ fontSize: 17, fontWeight: 700, borderTop: '1px solid var(--linha)', marginTop: 6, paddingTop: 6 }}>
               <span>{falta < 0 ? 'Passaste' : 'Faltam'}</span>
@@ -96,7 +113,9 @@ function CartaoCompra({
 }) {
   const seccoes = useSeccoes()
   const pago = compra.totalPago ?? compra.totalCarrinho
-  const poupado = compra.totalPago != null ? arredondar(compra.totalCarrinho - compra.totalPago) : 0
+  const poupadoCaixa = compra.totalPago != null ? Math.max(0, compra.totalCarrinho - compra.totalPago) : 0
+  const poupado = arredondar(poupadoCaixa + compra.linhas.reduce((s, l) => s + (l.poupanca ?? 0), 0))
+  const [folha, setFolha] = useState<{ tipo: "linha"; linha: LinhaCompra | null } | { tipo: "caixa" } | null>(null)
 
   const grupos = useMemo(() => {
     const ordem = new Map(seccoes.map((s, i) => [s.id, i]))
@@ -139,15 +158,30 @@ function CartaoCompra({
                 <span>{euros(g.total)}</span>
               </div>
               {g.linhas.map((l) => (
-                <div className="linha-simples" key={l.produtoId}>
+                <button className="linha-simples linha-editavel" key={l.produtoId} onClick={() => setFolha({ tipo: "linha", linha: l })}>
                   <span>
                     {l.nome} · {numero(l.quantidade)} {l.unidade}
+                    {l.tipoPoupanca === "gratis" ? " · grátis" : l.tipoPoupanca === "promocao" ? " · promoção" : ""}
                   </span>
-                  <span>{euros(l.total)}</span>
-                </div>
+                  <span>
+                    {euros(l.total)} <span className="contagem">✎</span>
+                  </span>
+                </button>
               ))}
             </div>
           ))}
+          <button className="botao pequeno largo" style={{ marginTop: 10, borderStyle: "dashed" }} onClick={() => setFolha({ tipo: "linha", linha: null })}>
+            + Acrescentar artigo a esta compra
+          </button>
+          <button className="linha-simples linha-editavel" style={{ marginTop: 10, borderTop: "1px solid var(--linha)", paddingTop: 8 }} onClick={() => setFolha({ tipo: "caixa" })}>
+            <span>
+              Pago na caixa
+              {compra.totalPago != null && compra.motivoDesconto ? ` · ${compra.motivoDesconto.toLowerCase()}` : ""}
+            </span>
+            <span>
+              {compra.totalPago != null ? euros(compra.totalPago) : <span className="texto-destaque">escrever</span>} <span className="contagem">✎</span>
+            </span>
+          </button>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button className="botao principal pequeno" style={{ flex: 1 }} onClick={aoRepetir}>
               Repetir esta lista
@@ -158,6 +192,8 @@ function CartaoCompra({
           </div>
         </div>
       )}
+      {folha?.tipo === "linha" && <FolhaLinhaCompra compra={compra} linha={folha.linha} aoFechar={() => setFolha(null)} />}
+      {folha?.tipo === "caixa" && <FolhaCaixa compra={compra} aoFechar={() => setFolha(null)} />}
     </div>
   )
 }

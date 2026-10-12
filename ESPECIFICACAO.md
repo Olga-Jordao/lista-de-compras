@@ -149,13 +149,42 @@ o valor pago. Depois disso:
   amanhã. Só ganha a etiqueta **"Não comprado desde 10/10"** quando passar uma
   semana ou quando eu fechar outra compra sem o comprar.
 
+### Poupanças: promoções, grátis e descontos na caixa (12/10/2026)
+
+Três tipos de poupança, cada um registado num gesto, no sítio onde acontece:
+
+- **Promoção:** no artigo, o campo pequeno **"Preço normal (sem promoção)"**. A
+  diferença para o que se pagou é a poupança (café: 8 caixas a 2,99 € em vez de
+  3,75 € → 6,08 €). Serve também para o "leve 2, pague 1". O preço normal fica como
+  referência do produto, para o aviso de subida não disparar quando a promoção acaba.
+- **Grátis com pontos ou cupão:** o botão **"Grátis (pontos ou cupão)"** no artigo.
+  Não conta para o gasto; o valor da prateleira conta como poupança.
+- **Desconto na caixa** (cupões, vales, pontos em euros): "Quanto pagaste na caixa?"
+  ao fechar, **ou mais tarde**, em Compras.
+
+Não se guarda o saldo de pontos dos cartões: a aplicação de cada loja já o mostra.
+
+### Peso "de tudo" ou "de cada"
+
+Nos artigos à unidade, um interruptor ao lado de "Peso": **"de cada"** para embalagens
+(café: 108 g cada, 8 caixas = 864 g; fica guardado no produto) e **"de tudo"** para o
+que se pesa na balança (talho, peixaria, frutaria, padaria, charcutaria, onde começa
+sempre em "de tudo").
+
 ### Compras (histórico)
 
 Um separador **Compras** mostra as compras fechadas, da mais recente para a mais
 antiga, com a data, a lista, o total pago e o número de artigos. Ao tocar, abre o
 detalhe por secção, com **"Repetir esta lista"** e **"Apagar"** (para uma compra
 registada por engano, que deixa de contar para o orçamento). No topo, o resumo do
-mês: orçamento, gasto, poupado em descontos e quanto falta.
+mês: orçamento, gasto, **"Poupaste este mês"** dividido em promoções, pontos e
+cupões, e descontos na caixa, e quanto falta.
+
+**Corrigir uma compra fechada:** cada artigo pode ser tocado para corrigir a
+quantidade, o peso, o total pago, o preço normal ou o grátis, ou para o **tirar da
+compra**; **"+ Acrescentar artigo a esta compra"** junta o que ficou por marcar (e
+tira-o da lista); **"Pago na caixa"** escreve-se ou corrige-se quando der jeito. O
+total, a poupança, o orçamento e o último preço do produto acertam-se sozinhos.
 
 ### Orçamento do mês
 

@@ -1007,3 +1007,43 @@ button {
   white-space: nowrap;
   padding: 0 4px;
 }
+
+/* ---------- Grátis, promoção e peso de cada ---------- */
+
+.chip-gratis {
+  width: 100%;
+}
+
+.chip-gratis.ativo {
+  background: var(--destaque);
+  border-color: var(--destaque);
+  color: #fffefa;
+}
+
+.rotulo-com-escolha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.segmentos-pequenos .segmentos {
+  padding: 2px;
+}
+
+.segmentos-pequenos .segmento {
+  min-height: 28px;
+  font-size: 12px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.linha-editavel {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  min-height: 40px;
+  align-items: center;
+}

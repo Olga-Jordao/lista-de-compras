@@ -67,6 +67,13 @@ export interface Artigo extends Base {
   pesoTotal?: { quantidade: number; unidade: UnidadeConteudo } | null
   /** Preço ao quilo (ou ao litro) escrito da etiqueta. Pode faltar em registos antigos. */
   precoKg?: number | null
+  /**
+   * Preço normal, sem promoção, por unidade pedida (por un, dz, kg ou L). A diferença
+   * para o que se pagou é a poupança da promoção.
+   */
+  precoNormal?: number | null
+  /** Levado grátis com pontos ou cupão: não conta para o gasto, o valor conta como poupança. */
+  gratis?: boolean
   noCarrinho: boolean
   /** Antigo (já não se usa): ao fechar, tudo o que se comprou sai da lista. */
   fixo: boolean
@@ -96,6 +103,13 @@ export interface LinhaCompra {
   refUnidade: 'kg' | 'L' | null
   /** Fase B: loja onde foi comprado. */
   lojaId: string | null
+  /** Peso ou volume de tudo, em kg ou L, quando se sabia. Pode faltar em compras antigas. */
+  peso?: { valor: number; unidade: 'kg' | 'L' } | null
+  /** Poupança neste artigo: promoção (preço normal − pago) ou o valor do que veio grátis. */
+  poupanca?: number
+  tipoPoupanca?: 'promocao' | 'gratis' | null
+  /** Preço normal por unidade, quando estava em promoção. */
+  precoNormal?: number | null
 }
 
 export interface Compra extends Base {

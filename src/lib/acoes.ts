@@ -168,6 +168,159 @@ export async function acrescentarVarios(
   return postos
 }
 
+// ---------- Corrigir compras fechadas ----------
+
+export interface ValoresLinha {
+  quantidade: number
+  /** Peso ou volume de tudo, em kg ou L (opcional). */
+  peso: { valor: number; unidade: 'kg' | 'L' } | null
+  /** O que se pagou; se for grátis, o valor na prateleira. */
+  valor: number
+  precoNormal: number | null
+  gratis: boolean
+}
+
+/** Refaz as contas de uma linha de compra a partir do que se corrigiu. */
+export function calcularLinha<L extends Pick<LinhaCompra, 'unidade'>>(base: L, v: ValoresLinha): L & Partial<LinhaCompra> {
+  const aoPeso = base.unidade === 'kg' || base.unidade === 'L'
+  const q = v.quantidade
+  const peso = v.peso ?? (aoPeso && q > 0 ? { valor: q, unidade: base.unidade as 'kg' | 'L' } : null)
+  const prateleira = v.valor
+  const ref = peso && peso.valor > 0 ? { valor: prateleira / peso.valor, unidade: peso.unidade } : null
+  const unitario = aoPeso ? (ref?.valor ?? null) : q > 0 ? prateleira / q : null
+  let poupanca = 0
+  let tipoPoupanca: LinhaCompra['tipoPoupanca'] = null
+  if (v.gratis) {
+    poupanca = arredondar(prateleira)
+    tipoPoupanca = 'gratis'
+  } else if (v.precoNormal != null) {
+    const normal = aoPeso ? v.precoNormal * (peso?.valor ?? q) : v.precoNormal * q
+    if (normal - prateleira > 0.004) {
+      poupanca = arredondar(normal - prateleira)
+      tipoPoupanca = 'promocao'
+    }
+  }
+  return {
+    ...base,
+    quantidade: q,
+    total: v.gratis ? 0 : arredondar(v.valor),
+    precoUnitario: unitario == null ? null : arredondar(unitario, 4),
+    precoRef: ref ? arredondar(ref.valor, 4) : null,
+    refUnidade: ref?.unidade ?? null,
+    peso: peso ? { valor: arredondar(peso.valor, 4), unidade: peso.unidade } : null,
+    poupanca,
+    tipoPoupanca,
+    precoNormal: v.precoNormal,
+  }
+}
+
+/** Peso de tudo numa linha antiga: o guardado ou, se não houver, total ÷ preço ao quilo. */
+export function pesoDaLinha(l: LinhaCompra): { valor: number; unidade: 'kg' | 'L' } | null {
+  if (l.peso) return l.peso
+  if (l.precoRef && l.precoRef > 0 && l.total > 0) return { valor: l.total / l.precoRef, unidade: l.refUnidade ?? 'kg' }
+  if ((l.unidade === 'kg' || l.unidade === 'L') && l.quantidade > 0) return { valor: l.quantidade, unidade: l.unidade }
+  return null
+}
+
+async function gravarLinhas(compra: Compra, linhas: LinhaCompra[]): Promise<void> {
+  await gravar<Compra>('compras', { ...compra, linhas, totalCarrinho: arredondar(linhas.reduce((s, l) => s + l.total, 0)) })
+}
+
+/** O "último preço" de um produto volta a ser o da compra mais recente onde aparece. */
+async function recalcularUltimoPreco(produtoId: string): Promise<void> {
+  const produto = await db.produtos.get(produtoId)
+  if (!produto) return
+  const compras = (await db.compras.toArray()).filter((c) => !c.apagado).sort((a, b) => b.data.localeCompare(a.data))
+  for (const c of compras) {
+    const l = c.linhas.find((x) => x.produtoId === produtoId)
+    if (!l) continue
+    const peso = pesoDaLinha(l)
+    const aoPeso = l.unidade === 'kg' || l.unidade === 'L'
+    const unitario = l.precoNormal ?? l.precoUnitario
+    const ref =
+      l.precoNormal != null
+        ? aoPeso
+          ? l.precoNormal
+          : peso && peso.valor > 0
+            ? (l.precoNormal * l.quantidade) / peso.valor
+            : null
+        : l.precoRef
+    const mudancas: Partial<Produto> = { ultimoPrecoData: c.data }
+    if (unitario != null && l.unidade === produto.unidade) mudancas.ultimoPreco = arredondar(unitario, 4)
+    if (ref != null) mudancas.ultimoPrecoRef = arredondar(ref, 4)
+    await gravar<Produto>('produtos', { ...produto, ...mudancas })
+    return
+  }
+}
+
+export async function alterarLinhaCompra(compraId: string, produtoId: string, valores: ValoresLinha): Promise<void> {
+  await db.transaction('rw', db.compras, db.produtos, async () => {
+    const compra = await db.compras.get(compraId)
+    if (!compra) return
+    const linhas = compra.linhas.map((l) => (l.produtoId === produtoId ? (calcularLinha(l, valores) as LinhaCompra) : l))
+    await gravarLinhas(compra, linhas)
+    await recalcularUltimoPreco(produtoId)
+  })
+  avisar()
+}
+
+export async function tirarLinhaCompra(compraId: string, produtoId: string): Promise<void> {
+  await db.transaction('rw', db.compras, db.produtos, async () => {
+    const compra = await db.compras.get(compraId)
+    if (!compra) return
+    await gravarLinhas(
+      compra,
+      compra.linhas.filter((l) => l.produtoId !== produtoId),
+    )
+    await recalcularUltimoPreco(produtoId)
+  })
+  avisar()
+}
+
+/**
+ * Acrescenta a uma compra fechada um artigo que se esqueceu de marcar. Se estava na
+ * lista dessa compra por comprar, sai da lista.
+ */
+export async function acrescentarLinhaCompra(
+  compraId: string,
+  produto: Produto,
+  unidade: Unidade,
+  valores: ValoresLinha,
+): Promise<void> {
+  await db.transaction('rw', [db.compras, db.produtos, db.seccoes, db.artigos], async () => {
+    const compra = await db.compras.get(compraId)
+    if (!compra) return
+    const seccao = await db.seccoes.get(produto.seccaoId)
+    const base: LinhaCompra = {
+      produtoId: produto.id,
+      nome: produto.nome,
+      seccaoId: produto.seccaoId,
+      seccaoNome: seccao?.nome ?? '',
+      quantidade: valores.quantidade,
+      unidade,
+      precoUnitario: null,
+      total: 0,
+      precoRef: null,
+      refUnidade: null,
+      lojaId: null,
+    }
+    const linha = calcularLinha(base, valores) as LinhaCompra
+    await gravarLinhas(compra, [...compra.linhas.filter((l) => l.produtoId !== produto.id), linha])
+    await recalcularUltimoPreco(produto.id)
+    const naLista = (await db.artigos.where('listaId').equals(compra.listaId).toArray()).filter(
+      (a) => !a.apagado && !a.noCarrinho && a.produtoId === produto.id,
+    )
+    for (const a of naLista) await gravar<Artigo>('artigos', { ...a, apagado: true })
+  })
+  avisar()
+}
+
+/** O que se pagou na caixa (com cupões, pontos, vales), escrito agora ou mais tarde. */
+export async function alterarPagoNaCaixa(compraId: string, totalPago: number | null, motivo: string | null): Promise<void> {
+  await alterar<Compra>('compras', compraId, { totalPago, motivoDesconto: motivo })
+  avisar()
+}
+
 /** Apaga uma compra do histórico (deixa de contar para o orçamento). */
 export async function apagarCompra(id: string): Promise<void> {
   await alterar<Compra>('compras', id, { apagado: true })
@@ -260,9 +413,17 @@ export interface ContasArtigo {
   subida: Subida | null
   /** Os valores escritos não batem certo entre si: quanto devia dar o total. */
   incoerente: { totalEsperado: number } | null
+  /** O que custaria pelo preço da prateleira (igual ao total, exceto quando é grátis). */
+  valorPrateleira: number
+  /** Poupança neste artigo: promoção (preço normal − pago) ou o valor do que veio grátis. */
+  poupanca: number
+  tipoPoupanca: 'promocao' | 'gratis' | null
+  /** Preço normal ao kg ou ao L, quando há preço normal e peso. */
+  normalRef: PesoKgL | null
 }
 
-export type CamposArtigo = Pick<Artigo, 'quantidade' | 'unidade' | 'precoUnitario' | 'totalManual' | 'pesoTotal' | 'precoKg'>
+export type CamposArtigo = Pick<Artigo, 'quantidade' | 'unidade' | 'precoUnitario' | 'totalManual' | 'pesoTotal' | 'precoKg'> &
+  Partial<Pick<Artigo, 'precoNormal' | 'gratis'>>
 
 /**
  * Todas as contas de um artigo, iguais na lista, no painel e no fecho da compra.
@@ -323,11 +484,45 @@ export function contasArtigo(artigo: CamposArtigo, produto: Produto | undefined)
     if (longe != null) incoerente = { totalEsperado: arredondar(longe) }
   }
 
-  const subida = !escrito || !produto ? null : subidaDePreco(produto, unitario, u, aoQuilo)
+  // Promoção e grátis. O total acima é o valor "de prateleira"; o que se paga pode ser
+  // menos (grátis com pontos: nada).
+  const precoNormal = artigo.precoNormal ?? null
+  let poupanca = 0
+  let tipoPoupanca: ContasArtigo['tipoPoupanca'] = null
+  let normalRef: PesoKgL | null = null
+  if (precoNormal != null) {
+    normalRef = aoPesoPedido
+      ? { valor: precoNormal, unidade: u }
+      : peso && peso.valor > 0
+        ? { valor: (precoNormal * q) / peso.valor, unidade: peso.unidade }
+        : null
+  }
+  if (artigo.gratis) {
+    poupanca = totalFinal ?? 0
+    tipoPoupanca = 'gratis'
+  } else if (precoNormal != null && totalFinal != null) {
+    const valorNormal = aoPesoPedido ? precoNormal * (peso?.valor ?? q) : precoNormal * q
+    if (valorNormal - totalFinal > 0.004) {
+      poupanca = arredondar(valorNormal - totalFinal)
+      tipoPoupanca = 'promocao'
+    }
+  }
+
+  // O aviso de subida compara preços normais: com promoção, o preço normal escrito.
+  const subida =
+    !escrito || !produto
+      ? null
+      : precoNormal != null
+        ? subidaDePreco(produto, precoNormal, u, normalRef)
+        : subidaDePreco(produto, unitario, u, aoQuilo)
   return {
     temPreco: totalFinal != null,
     sugerido: !escrito && totalFinal != null,
-    total: totalFinal ?? 0,
+    total: artigo.gratis ? 0 : (totalFinal ?? 0),
+    valorPrateleira: totalFinal ?? 0,
+    poupanca,
+    tipoPoupanca,
+    normalRef,
     peso,
     pesoDeCadaUm,
     unitario,
@@ -361,7 +556,8 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
     for (const a of comprados) {
       const produto = produtos.get(a.produtoId)
       if (!produto) continue
-      const { unitario: efetivo, total, aoQuilo: ref, sugerido } = contasArtigo(a, produto)
+      const c = contasArtigo(a, produto)
+      const { unitario: efetivo, total, aoQuilo: ref, sugerido } = c
       linhas.push({
         produtoId: produto.id,
         nome: produto.nome,
@@ -374,12 +570,19 @@ export async function fecharCompra(dados: DadosFecho): Promise<Compra | null> {
         precoRef: ref ? arredondar(ref.valor, 4) : null,
         refUnidade: ref?.unidade ?? null,
         lojaId: null,
+        peso: c.peso ? { valor: arredondar(c.peso.valor, 4), unidade: c.peso.unidade } : null,
+        poupanca: c.poupanca,
+        tipoPoupanca: c.tipoPoupanca,
+        precoNormal: a.precoNormal ?? null,
       })
-      // O que se pagou passa a ser a referência do produto (as estimativas não contam).
+      // O preço pago (ou o normal, se estava em promoção) passa a ser a referência do
+      // produto. As estimativas não contam.
       if (sugerido) continue
       const mudancas: Partial<Produto> = { ultimoPrecoData: agora }
-      if (efetivo != null && a.unidade === produto.unidade) mudancas.ultimoPreco = arredondar(efetivo, 4)
-      if (ref) mudancas.ultimoPrecoRef = arredondar(ref.valor, 4)
+      const unitarioRef = a.precoNormal ?? efetivo
+      const refRef = a.precoNormal != null ? c.normalRef : ref
+      if (unitarioRef != null && a.unidade === produto.unidade) mudancas.ultimoPreco = arredondar(unitarioRef, 4)
+      if (refRef) mudancas.ultimoPrecoRef = arredondar(refRef.valor, 4)
       // Pedido à unidade e pesado na balança: fica a média de cada um (6 espetadas,
       // 1,730 kg → 288 g), para estimar da próxima vez.
       const pesoBalanca = conteudoEmKgOuL(a.pesoTotal ?? null)
